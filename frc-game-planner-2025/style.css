@@ -1,0 +1,198 @@
+/* Ensure the body and html take up the full viewport */
+html, body {
+    background-color: #161b22;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+}
+
+button, th, select, h1, input {
+    font-family: monospace;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Updated to fill screen while preserving field aspect ratio */
+#field-background {
+    user-select: none;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain; /* Keeps the field from stretching */
+    display: block;
+}
+
+/* Canvas now matches the calculated size of the background image */
+#field-canvas {
+    user-select: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Centers the canvas over the 'contained' image */
+}
+
+#setup-block {
+    position: absolute;
+    height: 60%;
+    width: 40%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(66, 66, 66, 0.95);
+    border-radius: 6px;
+    box-shadow: 0px 0px 200px #515760;
+    z-index: 10;
+}
+
+#tools {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 10px;
+    z-index: 5;
+}
+
+#team-table {
+    position: relative;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 15px;
+}
+
+#settings {
+    position: absolute;
+    top: 2%;
+    right: 3%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(128deg) brightness(106%) contrast(101%);
+    z-index: 6;
+}
+
+.button-bar button {
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.non-active {
+    background-color: white;
+    filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(128deg) brightness(106%) contrast(101%);
+    transition: 0.5s;
+    border-color: black;
+}
+
+.active {
+    transition: 0.5s;
+    background-color: white;
+    border-color: white;
+    font-weight: 900;
+    filter: invert(0%) sepia(30%) saturate(10%) hue-rotate(206deg) brightness(92%) contrast(102%);
+}
+
+.other-active {
+    transition: 0.5s;
+    background-color: white;
+    border-color: white;
+}
+
+.other-non-active {
+    transition: 0.5s;
+    background-color: black;
+    border-color: white;
+}
+
+#sidebar {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    height: 100vh;
+    background-color: rgba(40, 40, 40, 0.9);
+    transition: 0.5s;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 20;
+    color: white;
+}
+
+#sidebar div {
+    padding: 3%;
+}
+
+.teams span {
+    font-size: large;
+}
+
+#sidebar .color-selector span {
+    height: 30px;
+    width: 30px;
+    background-size: cover;
+    display: inline-block;
+    margin-right: 5px;
+    transition: 0.25s;
+    cursor: pointer;
+}
+
+.selected-color {
+    border-radius: 5px;
+}
+
+.non-selected-color {
+    border-radius: 15px;
+}
+
+.closed {
+    width: 0%;
+    border-style: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.open {
+    width: 350px; /* Specific width for usability */
+    border-left: solid 2px #FFF;
+    opacity: 1;
+}
+
+.stages button {
+    color: white;
+    width: 32%;
+    margin: auto;
+    background-color: black;
+    border: white 3px solid;
+    transition: 0.5s;
+    cursor: pointer;
+}
+
+.selected-stage {
+    border-width: 5px !important;
+    font-weight: 900;
+}
+
+.options button {
+    background-color: black;
+    color: white;
+    width: 48%;
+    margin: auto;
+    padding: 3px;
+    display: inline-block;
+    border: solid white 2px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#version {
+    position: fixed; 
+    bottom: 5px; 
+    right: 5px; 
+    color: rgba(255, 255, 255, 0.25);
+    font-family: monospace;
+    z-index: 1;
+}

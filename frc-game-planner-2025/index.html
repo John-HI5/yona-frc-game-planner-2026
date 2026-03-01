@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game-Planner</title>
+    <link rel="stylesheet" href="style.css" />
+    <script defer src="main.js"></script>
+    <script defer src="listeners.js"></script>
+    <link rel="shortcut icon" href="./assets/greenswerve.svg" />
+    <style>
+      .record-active { background-color: #ff4444 !important; color: white; box-shadow: 0 0 10px red; }
+      .play-active { background-color: #44ff44 !important; color: black; box-shadow: 0 0 10px green; }
+      
+      #timer-display {
+        position: absolute;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: #44ff44;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 24px;
+        font-weight: bold;
+        padding: 5px 15px;
+        border-radius: 5px;
+        border: 2px solid #333;
+        pointer-events: none;
+        z-index: 1000;
+        min-width: 100px;
+        text-align: center;
+      }
+
+      #left-menu {
+        position: absolute;
+        left: 0;
+        top: 100px;
+        display: flex;
+        flex-direction: column;
+        z-index: 1001;
+        background: rgba(0,0,0,0.5);
+        padding: 5px;
+        border-radius: 0 10px 10px 0;
+      }
+      .tab-btn {
+        padding: 10px;
+        margin: 2px 0;
+        border: 1px solid #444;
+        background: #222;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        cursor: pointer;
+        text-align: left;
+        transition: 0.2s;
+      }
+      .tab-btn:hover { background: #444; }
+      .tab-btn.active-tab {
+        background: #3172e0;
+        border-color: #4facfe;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="timer-display">0.00s</div>
+
+    <div id="left-menu">
+      <button class="tab-btn active-tab" onclick="switchTab('AUTO')">AUTO</button>
+      <button class="tab-btn" onclick="switchTab('TRA SHIFT')">TRA SHIFT</button>
+      <button class="tab-btn" onclick="switchTab('ALL SHIFT 1')">ALL SHIFT 1</button>
+      <button class="tab-btn" onclick="switchTab('ALL SHIFT 2')">ALL SHIFT 2</button>
+      <button class="tab-btn" onclick="switchTab('ALL SHIFT 3')">ALL SHIFT 3</button>
+      <button class="tab-btn" onclick="switchTab('ALL SHIFT 4')">ALL SHIFT 4</button>
+      <button class="tab-btn" onclick="switchTab('END GAME')">END GAME</button>
+    </div>
+
+    <img id="field-background" src="25assets/field25-annotated.png" alt="Field Background" />
+    
+    <svg id="field-canvas">
+      <defs id="canvas-defs">
+        <marker id="ahFFF" markerWidth="5" markerHeight="5" refX="2" refY="2" orient="auto">
+          <polygon points="0 0, 5 2, 0 4" fill="#FFF" />
+        </marker>
+        <marker id="ah00F" markerWidth="5" markerHeight="5" refX="2" refY="2" orient="auto">
+          <polygon points="0 0, 5 2, 0 4" fill="#00F" />
+        </marker>
+        <marker id="ahF00" markerWidth="5" markerHeight="5" refX="2" refY="2" orient="auto">
+          <polygon points="0 0, 5 2, 0 4" fill="#F00" />
+        </marker>
+        <marker id="ahFF0" markerWidth="5" markerHeight="5" refX="2" refY="2" orient="auto">
+          <polygon points="0 0, 5 2, 0 4" fill="#FF0" />
+        </marker>
+        <marker id="ahffa500" markerWidth="5" markerHeight="5" refX="2" refY="2" orient="auto">
+          <polygon points="0 0, 5 2, 0 4" fill="#ffa500" />
+        </marker>
+        <marker id="ah56ea16" markerWidth="5" markerHeight="5" refX="2" refY="2" orient="auto">
+          <polygon points="0 0, 5 2, 0 4" fill="#56ea16" />
+        </marker>
+      </defs>
+      
+      <g id="draw-layer-AUTO"></g>
+      <g id="draw-layer-TRA-SHIFT" style="display:none"></g>
+      <g id="draw-layer-ALL-SHIFT-1" style="display:none"></g>
+      <g id="draw-layer-ALL-SHIFT-2" style="display:none"></g>
+      <g id="draw-layer-ALL-SHIFT-3" style="display:none"></g>
+      <g id="draw-layer-ALL-SHIFT-4" style="display:none"></g>
+      <g id="draw-layer-END-GAME" style="display:none"></g>
+
+      <g id="stage-canvas"></g>
+    </svg>
+
+    <img id="settings" src="icons/gears.svg" onclick="document.getElementById('sidebar').classList.replace('closed', 'open')" />
+
+    <div id="tools" class="button-bar">
+      <button id="drag-tool" class="non-active" onclick="setMode(CanvasMode.DRAG)" style="background-image: url('icons/select.svg')"></button>
+      <button class="non-active" onclick="setMode(CanvasMode.DELETE)" style="background-image: url(icons/delete.svg)"></button>
+      <button class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
+      <button class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
+      <button id="piece-button" class="non-active" onclick="setMode(CanvasMode.PIECE)" style="background-image: url('25assets/display-coral.svg');"></button>
+      <button class="non-active" onclick="setMode(CanvasMode.POLYGON)" style="background-image: url('icons/hexagon.svg')"></button>
+      <button id="robot-button" class="other-non-active" onclick="setMode(CanvasMode.ROBOT)" style="background-image: url('icons/blueroboticon.svg')"></button>
+      
+      <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()" style="font-weight: bold; font-size: 10px; color: #3172e0;">RESET BOTS</button>
+      <button id="record-btn" class="non-active" onclick="toggleRecording()" style="font-weight: bold; color: #ff4444;">REC</button>
+      <button id="play-btn" class="non-active" onclick="toggleReplay()" style="font-weight: bold; color: #44ff44;">PLAY</button>
+    </div>
+
+    <div id="sidebar" class="closed">
+        <h1 style="margin: 10px;">Settings</h1>
+        <hr style="width: 90%; margin: auto;">
+        <table id="team-table">
+          <tr>
+            <th style="color: #3172e0; font-weight: 800;">Blue Alliance</th>
+            <th style="color: #e03131; font-weight: 800;">Red Alliance</th>
+          </tr>
+          <tr>
+            <td>
+              <input id="b1" type="number" placeholder="Blue 1" value="1" onchange="blueRobots.at(0)?.updateTeamNumber(event)"> 
+              <select id="b1d" onchange="blueRobots.at(0)?.updateDriveTrain(event)">
+                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
+              </select>
+            </td>
+            <td>
+              <input id="r1" type="number" placeholder="Red 1" value="4" onchange="redRobots.at(0)?.updateTeamNumber(event)">
+              <select id="r1d" onchange="redRobots.at(0)?.updateDriveTrain(event)">
+                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input id="b2" type="number" placeholder="Blue 2" value="2" onchange="blueRobots.at(1)?.updateTeamNumber(event)">
+              <select id="b2d" onchange="blueRobots.at(1)?.updateDriveTrain(event)">
+                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
+              </select>
+            </td>
+            <td>
+              <input id="r2" type="number" placeholder="Red 2" value="5" onchange="redRobots.at(1)?.updateTeamNumber(event)">
+              <select id="r2d" onchange="redRobots.at(1)?.updateDriveTrain(event)">
+                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input id="b3" type="number" placeholder="Blue 3" value="3" onchange="blueRobots.at(2)?.updateTeamNumber(event)">
+              <select id="b3d" onchange="blueRobots.at(2)?.updateDriveTrain(event)">
+                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
+              </select>
+            </td>
+            <td>
+              <input id="r3" type="number" placeholder="Red 3" value="6" onchange="redRobots.at(2)?.updateTeamNumber(event)">
+              <select id="r3d" onchange="redRobots.at(2)?.updateDriveTrain(event)">
+                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+  
+        <hr style="width: 90%; margin: auto;">
+        <div style="padding: 10px; color: white;">
+          <label>Robot Size</label><br>
+          <input type="range" id="robot-size-slider" min="30" max="120" value="60" oninput="updateAllRobotSizes(this.value)" style="width: 90%;">
+          <br>
+          <label>Number Size</label><br>
+          <input type="range" id="text-size-slider" min="8" max="32" value="14" oninput="updateAllTextSizes(this.value)" style="width: 90%;">
+        </div>
+  
+        <div class="options">
+          <button onclick="clearField()">Clear Stage</button>
+          <button onclick="resetPlanner()">Reset Canvas</button>
+        </div>
+  
+        <div class="color-selector" style="padding-bottom: 75px; text-align: center;">
+          <span class="selected-color" onclick="changeColor('#FFF')" style="background-color: white;"></span>
+          <span class="non-selected-color" onclick="changeColor('#F00')" style="background-color: red;"></span>
+          <span class="non-selected-color" onclick="changeColor('#00F')" style="background-color: blue;"></span>
+          <span class="non-selected-color" onclick="changeColor('#FF0')" style="background-color: yellow;"></span>
+          <span class="non-selected-color" onclick="changeColor('#ffa500')" style="background-color: #ffa500;"></span>
+          <span class="non-selected-color" onclick="changeColor('#56ea16')" style="background-color: #56ea16;"></span>
+        </div>
+        <span id="version">v4.0.0</span>
+    </div>
+
+    <input type="color" id="robot-color-picker" style="display: none; position: absolute; z-index: 999; width: 40px; height: 40px;">
+  </body>
+</html>
