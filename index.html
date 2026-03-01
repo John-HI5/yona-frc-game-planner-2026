@@ -140,7 +140,7 @@
       <g id="draw-layer-ALL-SHIFT-3" style="display:none"></g>
       <g id="draw-layer-ALL-SHIFT-4" style="display:none"></g>
       <g id="draw-layer-END-GAME" style="display:none"></g>
-
+      
       <g id="slots-layer"></g>
       <g id="stage-canvas"></g>
     </svg>
@@ -214,6 +214,8 @@
 
         <hr style="width: 90%; margin: 10px auto;">
 
+        <button id="fullscreen-btn" class="non-active" onclick="toggleFullScreen()" style="font-weight: bold; color: #c41d1d;">FULLSCREEN</button>
+        
         <div class="json-sidebar-container">
             <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
             <button onclick="document.getElementById('json-upload').click()">UPLOAD SCHEDULE (JSON)</button>

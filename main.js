@@ -128,6 +128,20 @@ function loadMatchByNumber() {
 
 // --- המשך הקוד המקורי ---
 
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        // Enters fullscreen mode
+        document.documentElement.requestFullscreen().catch(err => {
+            alert(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+    } else {
+        // Exits fullscreen mode
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
 function initSlots() {
     slotsLayer.innerHTML = "";
     slotCoords.forEach(coord => {
