@@ -1,5 +1,6 @@
 const fieldCanvas = document.getElementById("field-canvas");
 const stageCanvas = document.getElementById("stage-canvas");
+const slotsLayer = document.getElementById("slots-layer");
 const background = document.getElementById("field-background");
 const colorPicker = document.getElementById("robot-color-picker");
 const timerDisplay = document.getElementById("timer-display");
@@ -29,8 +30,12 @@ var clickStartTime = 0;
 var lastClickTime = 0;
 var clickCount = 0;
 
-// Placeholder Logic
-var selectedPlaceholder = null;
+// Slot State
+var pendingSlot = null;
+const slotCoords = [
+    {x: 145, y: 270}, {x: 145, y: 490}, {x: 145, y: 880},
+    {x: 2400, y: 420}, {x: 2400, y: 807}, {x: 2400, y: 1040}
+];
 
 // ---------- Tab System State ---------- \\
 var currentTabId = 'AUTO';
@@ -48,79 +53,47 @@ tabNames.forEach(name => {
 var robotPaths = tabStates[currentTabId].robotPaths;
 var activeRobotTime = 0;
 
-// ---------- Replay System ---------- \\
-var isRecording = false;
-var isReplaying = false;
-var recordInterval = null;
-var replayInterval = null;
-var currentFrameIndex = 0;
-
 // ---------- Initialization ---------- \\
 
 window.onload = function () { 
     resizeCanvas(); 
     spawnInitialRobots();
-    createPlaceholders();
+    initSlots();
     captureAllTabPositions();
 };
-window.onresize = function () { 
-    resizeCanvas(); 
-    createPlaceholders(); // Add this line here
-};
+window.onresize = function () { resizeCanvas(); };
 
-function createPlaceholders() {
-    const container = document.getElementById("info-placeholders-group");
-    container.innerHTML = ""; // Clear existing to prevent duplicates on resize
-
-    // Get the actual position and size of the field image
-    const bgRect = background.getBoundingClientRect();
-    const svgRect = fieldCanvas.getBoundingClientRect();
-
-    // Calculate where the image starts relative to the SVG
-    const offsetX = bgRect.left - svgRect.left;
-    const offsetY = bgRect.top - svgRect.top;
-
-    // Define positions relative to the TOP-LEFT of the field image
-    // You can adjust these numbers (50, 110, etc.) to place them exactly where you want on the map
-    const positions = [
-        {x: 60, y: 60}, {x: 60, y: 120}, {x: 60, y: 180},
-        {x: 130, y: 60}, {x: 130, y: 120}, {x: 130, y: 180}
-    ];
-
-    positions.forEach((pos) => {
+function initSlots() {
+    slotsLayer.innerHTML = "";
+    slotCoords.forEach(coord => {
         let group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("transform", `translate(${coord.x}, ${coord.y})`);
+        group.classList.add("slot-group");
         
-        // Add the offsets so they stick to the image, not the screen
-        const finalX = offsetX + (pos.x * heightRatio);
-        const finalY = offsetY + (pos.y * heightRatio);
-        
-        group.setAttribute("transform", `translate(${finalX}, ${finalY})`);
-        group.classList.add("info-placeholder");
-
         let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("r", 20 * heightRatio); // Scale circle size too
-        circle.setAttribute("fill", "rgba(0,0,0,0.6)");
+        circle.setAttribute("r", 40);
+        circle.setAttribute("fill", "rgba(255,255,255,0.2)");
         circle.setAttribute("stroke", "white");
         circle.setAttribute("stroke-width", "2");
-
+        
         let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("dominant-baseline", "middle");
-        text.setAttribute("text-anchor", "middle");
         text.setAttribute("fill", "white");
-        text.style.fontSize = (currentTextSize) + "px";
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("dominant-baseline", "middle");
         text.style.fontFamily = "monospace";
         text.style.fontWeight = "900";
-        text.textContent = "?";
+        text.style.fontSize = currentTextSize + "px";
+        text.style.pointerEvents = "none";
 
         group.appendChild(circle);
         group.appendChild(text);
-        container.appendChild(group);
+        slotsLayer.appendChild(group);
 
-        group.addEventListener("click", (e) => {
+        group.addEventListener("pointerdown", (e) => {
             e.stopPropagation();
-            document.querySelectorAll(".info-placeholder circle").forEach(c => c.setAttribute("stroke", "white"));
-            selectedPlaceholder = group;
-            circle.setAttribute("stroke", "#44ff44");
+            if (pendingSlot) pendingSlot.classList.remove("slot-active");
+            pendingSlot = group;
+            group.classList.add("slot-active");
         });
     });
 }
@@ -237,150 +210,6 @@ function getMousePosition(evt) {
     return { x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d };
 }
 
-function getActiveLayer() {
-  const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
-  return document.getElementById(layerId) || stageCanvas;
-}
-
-// LISTENERS
-fieldCanvas.addEventListener("pointermove", (event) => {
-  let position = getMousePosition(event);
-  if (currentCanvasMode == CanvasMode.ARROW && currentArrow != null) {
-      currentArrow.setAttribute("x2", position.x);
-      currentArrow.setAttribute("y2", position.y);
-  } else if (currentCanvasMode == CanvasMode.DRAG && selectedElement) {
-      event.preventDefault(); 
-      transform.setTranslate(position.x - offset.x, position.y - offset.y);
-  } else if (currentCanvasMode == CanvasMode.PEN && currentPenPath) {
-      event.preventDefault(); 
-      currentPenPath.setAttribute("points", currentPenPath.getAttribute("points") + position.x + " " + position.y + " ");
-  } else if (currentCanvasMode == CanvasMode.DELETE && (event.buttons != 0 || event.pointerType === 'touch')) {
-    let target = document.elementFromPoint(event.clientX, event.clientY);
-    if (target && target !== fieldCanvas && target.id !== "field-background") {
-      let isRobot = target.closest('.robot-group');
-      if (!isRobot) target.remove();
-    }
-  }
-});
-
-fieldCanvas.addEventListener("pointerdown", (event) => {
-  const now = Date.now();
-  if (now - lastClickTime > 400) clickCount = 0;
-  clickCount++;
-  lastClickTime = now;
-
-  if (event.target === fieldCanvas || event.target.id === "field-background") {
-    colorPicker.style.display = "none";
-    selectedPlaceholder = null;
-    document.querySelectorAll(".info-placeholder circle").forEach(c => c.setAttribute("stroke", "white"));
-    if (clickCount === 3) { clearDrawingsOnly(); clickCount = 0; return; }
-    if (clickCount === 2) { setMode(CanvasMode.DRAG); return; }
-  } else {
-    clickCount = 0;
-  }
-
-  if (!document.getElementById("sidebar").classList.contains("open")) {
-    var position = getMousePosition(event);
-    const activeLayer = getActiveLayer();
-
-    if (currentCanvasMode == CanvasMode.PIECE) {
-      var piece = addImage(position.x, position.y, 0, "25assets/coral.svg", 30 * heightRatio, activeLayer);
-      makeDragable(piece);
-    } else if (currentCanvasMode == CanvasMode.ARROW && currentArrow == null) {
-        currentArrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        currentArrow.setAttribute("stroke", selectedColor);
-        currentArrow.setAttribute("x1", position.x);
-        currentArrow.setAttribute("y1", position.y);
-        currentArrow.setAttribute("x2", position.x);
-        currentArrow.setAttribute("y2", position.y);
-        currentArrow.setAttribute("stroke-width", 4);
-        currentArrow.setAttribute("marker-end", "url(#ah" + selectedColor.replace('#', '') + ")");
-        activeLayer.appendChild(currentArrow);
-        makeDragable(currentArrow);
-    } else if (currentCanvasMode == CanvasMode.PEN) {
-      currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      currentPenPath.setAttribute("stroke", selectedColor);
-      currentPenPath.setAttribute("fill", "none");
-      currentPenPath.setAttribute("points", position.x + "," + position.y + " ");
-      currentPenPath.setAttribute("stroke-width", 4);
-      currentPenPath.setAttribute("stroke-linecap", "round");
-      activeLayer.appendChild(currentPenPath);
-      makeDragable(currentPenPath);
-    }
-  } else {
-    document.getElementById("sidebar").classList.replace("open", "closed");
-  }
-});
-
-fieldCanvas.addEventListener("pointerup", (event) => {
-  currentArrow = null;
-  currentPenPath = null;
-});
-
-function selectElement(evt) {
-    evt.stopPropagation();
-    let target = evt.currentTarget;
-
-    if (selectedPlaceholder && target.classList.contains("robot-group")) {
-        let robotText = target.querySelector("text");
-        let placeholderText = selectedPlaceholder.querySelector("text");
-        let placeholderCircle = selectedPlaceholder.querySelector("circle");
-        if (robotText && placeholderText) {
-            placeholderText.textContent = robotText.textContent;
-            placeholderText.setAttribute("fill", robotText.getAttribute("fill"));
-            placeholderCircle.setAttribute("stroke", robotText.getAttribute("fill"));
-        }
-        selectedPlaceholder = null;
-        return;
-    }
-
-    if (currentCanvasMode == CanvasMode.DELETE) {
-        if (!target.classList.contains("robot-group")) target.remove();
-        return;
-    }
-    if (currentCanvasMode == CanvasMode.PEN) {
-        let text = target.querySelector("text");
-        if (text) changeColor(text.getAttribute("fill"));
-        return;
-    }
-    if (currentCanvasMode == CanvasMode.DRAG) {
-        if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
-            const existingPath = robotPaths.get(target);
-            activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
-            updateTimer(activeRobotTime);
-        }
-        selectedElement = target;
-        clickStartTime = Date.now();
-        offset = getMousePosition(evt);
-        let transforms = selectedElement.transform.baseVal;
-        if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
-            let translate = fieldCanvas.createSVGTransform();
-            translate.setTranslate(0, 0);
-            selectedElement.transform.baseVal.insertItemBefore(translate, 0);
-        }
-        transform = transforms.getItem(0);
-        offset.x -= transform.matrix.e;
-        offset.y -= transform.matrix.f;
-    }
-}
-
-function releaseElement(evt) {
-    if (selectedElement && selectedElement.classList.contains("robot-group") && currentCanvasMode == CanvasMode.DRAG) {
-        if (Date.now() - clickStartTime < CLICK_THRESHOLD) {
-            robotToColor = selectedElement;
-            colorPicker.style.left = evt.clientX + "px";
-            colorPicker.style.top = evt.clientY + "px";
-            colorPicker.style.display = "block";
-        }
-    }
-    selectedElement = null;
-}
-
-function makeDragable(element) {
-  element.addEventListener("pointerdown", selectElement);
-  element.addEventListener("pointerup", releaseElement);
-}
-
 function toggleRecording() {
     if (isReplaying) stopReplay();
     isRecording = !isRecording;
@@ -401,6 +230,8 @@ function toggleRecording() {
         clearInterval(recordInterval);
     }
 }
+
+var isRecording = false, isReplaying = false, recordInterval = null, replayInterval = null, currentFrameIndex = 0;
 
 function toggleReplay() {
     if (isRecording) toggleRecording();
@@ -444,7 +275,7 @@ function addImage(xpos, ypos, angle, src, size, parent) {
 function setMode(mode) {
     currentCanvasMode = mode;
     document.querySelectorAll('#tools button').forEach(b => b.classList.remove("active", "other-active"));
-    const modeIds = ["", "pen", "drag-tool", "", "", "piece-button", ""];
+    const modeIds = ["", "pen", "drag-tool", "", "robot-button", "piece-button", "arrow-tool"];
     const activeBtn = document.getElementById(modeIds[mode]);
     if (activeBtn) activeBtn.classList.add("active");
 }
@@ -460,7 +291,8 @@ colorPicker.addEventListener("input", (e) => {
 });
 
 function clearField() {
-    clearDrawingsOnly();
+    const layer = document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`);
+    while(layer.firstChild) layer.removeChild(layer.firstChild);
     robotPaths.clear();
     activeRobotTime = 0;
     updateTimer(0);
@@ -490,7 +322,7 @@ function updateAllRobotSizes(s) {
 
 function updateAllTextSizes(s) {
     currentTextSize = s;
-    document.querySelectorAll(".robot-group text, .info-placeholder text").forEach(t => t.style.fontSize = s + "px");
+    document.querySelectorAll(".robot-group text, .slot-group text").forEach(t => t.style.fontSize = s + "px");
 }
 
 class Robot {

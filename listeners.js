@@ -4,6 +4,10 @@ function getActiveLayer() {
   return document.getElementById(layerId) || stageCanvas;
 }
 
+var currentArrow = null;
+var currentPenPath = null;
+var currentPolygon = null;
+
 fieldCanvas.addEventListener("pointermove", (event) => {
   let position = getMousePosition(event);
   
@@ -26,14 +30,11 @@ fieldCanvas.addEventListener("pointermove", (event) => {
       );
     }
   } else if (currentCanvasMode == CanvasMode.DELETE && (event.buttons != 0 || event.pointerType === 'touch')) {
-    // שימוש ב-elementFromPoint כדי למצוא מה נמצא מתחת לאצבע בזמן תנועה
     let target = document.elementFromPoint(event.clientX, event.clientY);
-    
     if (target && target !== fieldCanvas && target.id !== "field-background") {
-      // מחיקה רק אם זה לא רובוט וזה נמצא בתוך שכבת הציור או הסטייג'
       let isRobot = target.closest('.robot-group');
-      if (!isRobot) {
-        // מוחק את האלמנט (חץ, קו או צורה)
+      let isSlot = target.closest('.slot-group');
+      if (!isRobot && !isSlot) {
         target.remove();
       }
     }
@@ -45,53 +46,9 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
     var position = getMousePosition(event);
     const activeLayer = getActiveLayer();
 
-    if (currentCanvasMode == CanvasMode.ROBOT) {
-      if (
-        (allianceColor == Alliance.RED && redRobots.length < 3) ||
-        (allianceColor == Alliance.BLUE && blueRobots.length < 3)
-      ) {
-        let driveConfig = allianceColor == Alliance.RED ? "r" + (redRobots.length + 1) : "b" + (blueRobots.length + 1);
-        let robotGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        robotGroup.setAttribute("transform", "translate(" + position.x + "," + position.y + ")");
-        robotGroup.classList.add("robot-group");
-
-        var robot = addImage(0, 0, 90, "assets/" + (allianceColor == Alliance.RED ? "r" : "b") + document.getElementById(driveConfig + "d").value + ".svg", currentRobotSize * heightRatio, robotGroup);
-        robot.setAttribute("class", (allianceColor == Alliance.RED ? "r" : "b") + "bot");
-
-        var teamNumber = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        teamNumber.innerHTML = document.getElementById(driveConfig).value;
-        teamNumber.style = `font-family: monospace; font-weight: 900; font-size: ${currentTextSize}px; pointer-events: none;`;
-        teamNumber.setAttribute("fill", "white");
-        teamNumber.setAttribute("dominant-baseline", "middle");
-        teamNumber.setAttribute("text-anchor", "middle");
-
-        robotGroup.appendChild(teamNumber);
-        stageCanvas.appendChild(robotGroup); 
-        makeDragable(robotGroup);
-
-        if (allianceColor == Alliance.RED) {
-          redRobots.push(new Robot("r", robot, teamNumber));
-        } else {
-          blueRobots.push(new Robot("b", robot, teamNumber));
-        }
-      }
-    } else if (currentCanvasMode == CanvasMode.PIECE) {
+    if (currentCanvasMode == CanvasMode.PIECE) {
       var piece = addImage(position.x, position.y, 0, "25assets/coral.svg", 30 * heightRatio, activeLayer);
       makeDragable(piece);
-    } else if (currentCanvasMode == CanvasMode.POLYGON) {
-      if (currentPolygon == null) {
-        currentPolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        currentPolygon.setAttribute("fill", selectedColor);
-        currentPolygon.setAttribute("points", position.x + ", " + position.y + " ");
-        currentPolygon.setAttribute("stroke", selectedColor);
-        currentPolygon.setAttribute("stroke-width", "3px");
-        currentPolygon.setAttribute("fill-opacity", 0.4);
-        activeLayer.appendChild(currentPolygon);
-        makeDragable(currentPolygon);
-      } else {
-        var pts = currentPolygon.getAttribute("points");
-        currentPolygon.setAttribute("points", pts + position.x + "," + position.y + " ");
-      }
     } else if (currentCanvasMode == CanvasMode.ARROW) {
       if (currentArrow == null) {
         currentArrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -119,6 +76,21 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
     document.getElementById("sidebar").classList.replace("open", "closed");
     currentPolygon = null;
   }
+
+  // Handle Double/Triple clicks for resetting mode
+  const now = Date.now();
+  if (now - lastClickTime > 400) clickCount = 0;
+  clickCount++;
+  lastClickTime = now;
+
+  if (event.target === fieldCanvas || event.target.id === "field-background") {
+      colorPicker.style.display = "none";
+      if (pendingSlot) {
+          pendingSlot.classList.remove("slot-active");
+          pendingSlot = null;
+      }
+      if (clickCount === 2) setMode(CanvasMode.DRAG);
+  }
 });
 
 fieldCanvas.addEventListener("pointerup", (event) => {
@@ -129,4 +101,63 @@ fieldCanvas.addEventListener("pointerup", (event) => {
 function makeDragable(element) {
   element.addEventListener("pointerdown", selectElement);
   element.addEventListener("pointerup", releaseElement);
+}
+
+function selectElement(evt) {
+    evt.stopPropagation();
+    let target = evt.currentTarget;
+
+    // --- Slot Inheritance Logic ---
+    if (pendingSlot && target.classList.contains("robot-group")) {
+        let robotNum = target.querySelector("text").innerHTML;
+        let robotColor = target.querySelector("text").getAttribute("fill") || target.querySelector("text").style.fill;
+        
+        let slotText = pendingSlot.querySelector("text");
+        slotText.innerHTML = robotNum;
+        slotText.setAttribute("fill", robotColor);
+        
+        pendingSlot.classList.remove("slot-active");
+        pendingSlot = null;
+        return; // Don't drag if we are just linking
+    }
+
+    if (currentCanvasMode == CanvasMode.DELETE) {
+        if (!target.classList.contains("robot-group") && !target.classList.contains("slot-group")) {
+            target.remove();
+        }
+        return;
+    }
+
+    if (currentCanvasMode == CanvasMode.DRAG) {
+        if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
+            const existingPath = robotPaths.get(target);
+            activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
+            updateTimer(activeRobotTime);
+        }
+
+        selectedElement = target;
+        clickStartTime = Date.now();
+        offset = getMousePosition(evt);
+        let transforms = selectedElement.transform.baseVal;
+        if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
+            let translate = fieldCanvas.createSVGTransform();
+            translate.setTranslate(0, 0);
+            selectedElement.transform.baseVal.insertItemBefore(translate, 0);
+        }
+        transform = transforms.getItem(0);
+        offset.x -= transform.matrix.e;
+        offset.y -= transform.matrix.f;
+    }
+}
+
+function releaseElement(evt) {
+    if (selectedElement && selectedElement.classList.contains("robot-group") && currentCanvasMode == CanvasMode.DRAG) {
+        if (Date.now() - clickStartTime < CLICK_THRESHOLD) {
+            robotToColor = selectedElement;
+            colorPicker.style.left = evt.clientX + "px";
+            colorPicker.style.top = evt.clientY + "px";
+            colorPicker.style.display = "block";
+        }
+    }
+    selectedElement = null;
 }

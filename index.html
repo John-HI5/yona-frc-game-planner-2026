@@ -9,7 +9,7 @@
     <script defer src="listeners.js"></script>
     <link rel="shortcut icon" href="./assets/greenswerve.svg" />
     <style>
-      #field-canvas, #field-background, .robot-group {
+      #field-canvas, #field-background, .robot-group, .slot-group {
         touch-action: none;
         -webkit-user-select: none;
         user-select: none;
@@ -66,8 +66,11 @@
         background: #3172e0;
         border-color: #4facfe;
       }
-
-      .info-placeholder { cursor: pointer; }
+      .slot-active circle {
+        stroke: #44ff44;
+        stroke-width: 5px;
+        filter: drop-shadow(0 0 5px #44ff44);
+      }
     </style>
   </head>
   <body>
@@ -115,8 +118,8 @@
       <g id="draw-layer-ALL-SHIFT-4" style="display:none"></g>
       <g id="draw-layer-END-GAME" style="display:none"></g>
 
+      <g id="slots-layer"></g>
       <g id="stage-canvas"></g>
-      <g id="info-placeholders-group"></g>
     </svg>
 
     <img id="settings" src="icons/gears.svg" onclick="document.getElementById('sidebar').classList.replace('closed', 'open')" />
@@ -127,6 +130,7 @@
       <button class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
       <button class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
       <button id="piece-button" class="non-active" onclick="setMode(CanvasMode.PIECE)" style="background-image: url('25assets/display-coral.svg');"></button>
+      <button id="robot-button" class="other-non-active" onclick="setMode(CanvasMode.ROBOT)" style="background-image: url('icons/blueroboticon.svg')"></button>
       
       <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()" style="font-weight: bold; font-size: 10px; color: #3172e0;">RESET BOTS</button>
       <button id="record-btn" class="non-active" onclick="toggleRecording()" style="font-weight: bold; color: #ff4444;">REC</button>
