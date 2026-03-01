@@ -58,6 +58,69 @@ window.onload = function () {
 };
 window.onresize = function () { resizeCanvas(); };
 
+// --- FRC SCHEDULE LOADING FUNCTIONS ---
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            loadMatchData(data);
+        } catch (err) {
+            console.error("JSON Error Details:", err);
+            alert("Error parsing JSON file. Check the console (F12) for details.");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function loadMatchData(data) {
+    if (!Array.isArray(data)) {
+        alert("Error: This JSON is not a standard FRC match array.");
+        return;
+    }
+
+    const matchInput = prompt("Enter Match Number:");
+    if (!matchInput) return;
+
+    // FRC official files use 'match_number'
+    const match = data.find(m => m.match_number == matchInput);
+
+    if (match) {
+        // Update Blue Alliance
+        if (match.alliances && match.alliances.blue) {
+            match.alliances.blue.team_keys.forEach((teamKey, index) => {
+                if (blueRobots[index]) {
+                    const teamNum = teamKey.replace('frc', '');
+                    blueRobots[index].numberElement.innerHTML = teamNum;
+                    const inputField = document.getElementById(`b${index + 1}`);
+                    if (inputField) inputField.value = teamNum;
+                }
+            });
+        }
+
+        // Update Red Alliance
+        if (match.alliances && match.alliances.red) {
+            match.alliances.red.team_keys.forEach((teamKey, index) => {
+                if (redRobots[index]) {
+                    const teamNum = teamKey.replace('frc', '');
+                    redRobots[index].numberElement.innerHTML = teamNum;
+                    const inputField = document.getElementById(`r${index + 1}`);
+                    if (inputField) inputField.value = teamNum;
+                }
+            });
+        }
+        alert(`Match ${matchInput} loaded!`);
+    } else {
+        alert("Match number not found in this file.");
+    }
+}
+
+// --- REST OF THE CODE ---
+
 function initSlots() {
     slotsLayer.innerHTML = "";
     slotCoords.forEach(coord => {

@@ -200,7 +200,8 @@
           <label>Number Size</label><br>
           <input type="range" id="text-size-slider" min="8" max="32" value="14" oninput="updateAllTextSizes(this.value)" style="width: 90%;">
         </div>
-  
+        <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+        <button id="load-json-btn" class="non-active" onclick="document.getElementById('json-upload').click()" style="font-weight: bold; font-size: 10px; color: #ffca28;">LOAD MATCH</button>
 
   
 
