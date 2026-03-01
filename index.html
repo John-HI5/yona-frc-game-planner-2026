@@ -71,9 +71,29 @@
         stroke-width: 5px;
         filter: drop-shadow(0 0 5px #44ff44);
       }
-      /* Added styling for table inputs to keep sidebar tidy */
       #team-table input { width: 50px; background: #333; color: white; border: 1px solid #555; border-radius: 3px; }
       #team-table select { background: #333; color: white; border: 1px solid #555; font-size: 11px; }
+
+      /* עיצוב כפתורי ה-JSON בתוך הסיידבר */
+      .json-sidebar-container {
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .json-sidebar-container button {
+        background: #222;
+        color: #ffca28;
+        border: 1px solid #ffca28;
+        padding: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .json-sidebar-container button:hover {
+        background: #ffca28;
+        color: #000;
+      }
     </style>
   </head>
   <body>
@@ -129,7 +149,7 @@
 
     <div id="tools" class="button-bar">
       <button id="drag-tool" class="non-active" onclick="setMode(CanvasMode.DRAG)" style="background-image: url('icons/select.svg')"></button>
-      <button **id="delete-tool"** class="non-active" onclick="setMode(CanvasMode.DELETE)" style="background-image: url(icons/delete.svg)"></button>
+      <button id="delete-tool" class="non-active" onclick="setMode(CanvasMode.DELETE)" style="background-image: url(icons/delete.svg)"></button>
       <button id="pen" class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
       <button id="arrow-tool" class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
       <button id="piece-button" class="non-active" onclick="setMode(CanvasMode.PIECE)" style="background-image: url('25assets/display-coral.svg');"></button>
@@ -143,6 +163,7 @@
     <div id="sidebar" class="closed">
         <h1 style="margin: 10px;">Settings</h1>
         <hr style="width: 90%; margin: auto;">
+        
         <table id="team-table">
           <tr>
             <th style="color: #3172e0; font-weight: 800;">Blue Alliance</th>
@@ -157,7 +178,7 @@
             </td>
             <td>
               <input id="r1" type="number" value="4" onchange="redRobots.at(0)?.updateTeamNumber(event)">
-              <select id="r1d" onchange="redRobots.at(0)?.updateDriveTrain(event)">
+              <select id="r1d" onchange="redRobots.at(1)?.updateDriveTrain(event)">
                 <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
               </select>
             </td>
@@ -190,9 +211,18 @@
               </select>
             </td>
           </tr>
-          </table>
-  
-        <hr style="width: 90%; margin: auto;">
+        </table>
+
+        <hr style="width: 90%; margin: 10px auto;">
+
+        <div class="json-sidebar-container">
+            <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+            <button onclick="document.getElementById('json-upload').click()">UPLOAD SCHEDULE (JSON)</button>
+            <button onclick="loadMatchByNumber()">LOAD MATCH #</button>
+        </div>
+
+        <hr style="width: 90%; margin: 10px auto;">
+
         <div style="padding: 10px; color: white;">
           <label>Robot Size</label><br>
           <input type="range" id="robot-size-slider" min="30" max="120" value="60" oninput="updateAllRobotSizes(this.value)" style="width: 90%;">
@@ -200,10 +230,6 @@
           <label>Number Size</label><br>
           <input type="range" id="text-size-slider" min="8" max="32" value="14" oninput="updateAllTextSizes(this.value)" style="width: 90%;">
         </div>
-        <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
-        <button id="load-json-btn" class="non-active" onclick="document.getElementById('json-upload').click()" style="font-weight: bold; font-size: 10px; color: #ffca28;">LOAD MATCH</button>
-
-  
 
         <span id="version">v- אמא שלך</span>
     </div>

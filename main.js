@@ -50,6 +50,9 @@ tabNames.forEach(name => {
 var robotPaths = tabStates[currentTabId].robotPaths;
 var activeRobotTime = 0;
 
+// משתנה חדש לשמירת הלו"ז בזיכרון
+var cachedSchedule = null;
+
 window.onload = function () { 
     resizeCanvas(); 
     spawnInitialRobots();
@@ -58,8 +61,9 @@ window.onload = function () {
 };
 window.onresize = function () { resizeCanvas(); };
 
-// --- FRC SCHEDULE LOADING FUNCTIONS ---
+// --- פונקציות טעינת לו"ז FRC ---
 
+// 1. פונקציה לטעינת הקובץ לזיכרון (קורה פעם אחת)
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -67,30 +71,33 @@ function handleFileSelect(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const data = JSON.parse(e.target.result);
-            loadMatchData(data);
+            cachedSchedule = JSON.parse(e.target.result);
+            alert("יונה טען לך יופי טופי");
+            // אופציונלי: להפעיל ישר את בחירת המשחק אחרי הטעינה
+            loadMatchByNumber();
         } catch (err) {
             console.error("JSON Error Details:", err);
-            alert("Error parsing JSON file. Check the console (F12) for details.");
+            alert("חביריקו הקובץ אינו תקין...");
         }
     };
     reader.readAsText(file);
 }
 
-function loadMatchData(data) {
-    if (!Array.isArray(data)) {
-        alert("Error: This JSON is not a standard FRC match array.");
+// 2. פונקציה לשליפת משחק ספציפי מהזיכרון (מופעלת מהכפתור החדש)
+function loadMatchByNumber() {
+    if (!cachedSchedule) {
+        alert("אם לא תשלח, איך תקח??");
         return;
     }
 
-    const matchInput = prompt("Enter Match Number:");
+    const matchInput = prompt("איזה מספר משחק יאח?");
     if (!matchInput) return;
 
-    // FRC official files use 'match_number'
-    const match = data.find(m => m.match_number == matchInput);
+    // חיפוש בפורמט הרשמי של FRC
+    const match = cachedSchedule.find(m => m.match_number == matchInput);
 
     if (match) {
-        // Update Blue Alliance
+        // עדכון ברית כחולה
         if (match.alliances && match.alliances.blue) {
             match.alliances.blue.team_keys.forEach((teamKey, index) => {
                 if (blueRobots[index]) {
@@ -102,7 +109,7 @@ function loadMatchData(data) {
             });
         }
 
-        // Update Red Alliance
+        // עדכון ברית אדומה
         if (match.alliances && match.alliances.red) {
             match.alliances.red.team_keys.forEach((teamKey, index) => {
                 if (redRobots[index]) {
@@ -113,13 +120,13 @@ function loadMatchData(data) {
                 }
             });
         }
-        alert(`Match ${matchInput} loaded!`);
+        alert(`משחק ${matchInput} נטען ללוח בכישלון אדיר! תאשים את צוות בקרה`);
     } else {
-        alert("Match number not found in this file.");
+        alert(`משחק מספר ${matchInput} לא נמצא בקובץ כפרה עליך`);
     }
 }
 
-// --- REST OF THE CODE ---
+// --- המשך הקוד המקורי ---
 
 function initSlots() {
     slotsLayer.innerHTML = "";
