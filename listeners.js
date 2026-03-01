@@ -6,6 +6,7 @@ function getActiveLayer() {
 
 fieldCanvas.addEventListener("pointermove", (event) => {
   let position = getMousePosition(event);
+  
   if (currentCanvasMode == CanvasMode.ARROW) {
     if (currentArrow != null) {
       currentArrow.setAttribute("x2", position.x);
@@ -13,11 +14,12 @@ fieldCanvas.addEventListener("pointermove", (event) => {
     }
   } else if (currentCanvasMode == CanvasMode.DRAG) {
     if (selectedElement) {
-      event.preventDefault();
+      event.preventDefault(); // מונע גלילה בטאץ'
       transform.setTranslate(position.x - offset.x, position.y - offset.y);
     }
   } else if (currentCanvasMode == CanvasMode.PEN) {
     if (currentPenPath) {
+      event.preventDefault(); // מונע גלילה בטאץ' בזמן ציור
       currentPenPath.setAttribute(
         "points",
         currentPenPath.getAttribute("points") + position.x + " " + position.y + " "
@@ -58,7 +60,7 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
 
         var teamNumber = document.createElementNS("http://www.w3.org/2000/svg", "text");
         teamNumber.innerHTML = document.getElementById(driveConfig).value;
-        teamNumber.style = `font-family: monospace; font-weight: 900; font-size: ${currentTextSize}px;`;
+        teamNumber.style = `font-family: monospace; font-weight: 900; font-size: ${currentTextSize}px; pointer-events: none;`;
         teamNumber.setAttribute("fill", "white");
         teamNumber.setAttribute("dominant-baseline", "middle");
         teamNumber.setAttribute("text-anchor", "middle");

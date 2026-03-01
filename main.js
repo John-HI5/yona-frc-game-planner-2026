@@ -38,7 +38,6 @@ tabNames.forEach(name => {
     tabStates[name] = {
         robotPaths: new Map(),
         recordingTime: 0,
-        // Store coordinates for each of the 6 possible robots
         positions: [] 
     };
 });
@@ -58,12 +57,10 @@ var currentFrameIndex = 0;
 window.onload = function () { 
     resizeCanvas(); 
     spawnInitialRobots();
-    // Initialize the default positions for all tabs based on start
     captureAllTabPositions();
 };
 window.onresize = function () { resizeCanvas(); };
 
-// Captures current robot positions into the current tab's state
 function captureCurrentPositions() {
     let allBots = [...redRobots, ...blueRobots];
     tabStates[currentTabId].positions = allBots.map(bot => {
@@ -72,7 +69,6 @@ function captureCurrentPositions() {
     });
 }
 
-// Helper to fill all tabs with initial positions so they don't jump to 0,0
 function captureAllTabPositions() {
     let allBots = [...redRobots, ...blueRobots];
     let startPos = allBots.map(bot => {
@@ -87,20 +83,16 @@ function captureAllTabPositions() {
 function switchTab(newTabId) {
     if (newTabId === currentTabId) return;
 
-    // 1. SAVE: Capture where robots are right now for the OLD tab
     captureCurrentPositions();
     tabStates[currentTabId].recordingTime = activeRobotTime;
 
-    // 2. UI: Hide/Show drawing layers
     document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`).style.display = 'none';
     document.getElementById(`draw-layer-${newTabId.replace(/ /g, '-')}`).style.display = 'block';
 
-    // 3. LOAD: Update global references to the NEW tab
     currentTabId = newTabId;
     robotPaths = tabStates[currentTabId].robotPaths;
     activeRobotTime = tabStates[currentTabId].recordingTime;
 
-    // 4. TELEPORT: Move the robot elements to the positions saved in the NEW tab
     let allBots = [...redRobots, ...blueRobots];
     let savedPos = tabStates[currentTabId].positions;
     
@@ -110,7 +102,6 @@ function switchTab(newTabId) {
         }
     });
 
-    // 5. Update UI Buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.toggle('active-tab', btn.innerText === newTabId);
     });
@@ -133,8 +124,8 @@ function spawnInitialRobots() {
     const width = bgRect.width;
     const height = bgRect.height;
     const yRatios = [0.23, 0.50, 0.76];
-    const redXRatio = 0.15;            
-    const blueXRatio = 0.85;           
+    const redXRatio = 0.15;            
+    const blueXRatio = 0.85;           
 
     allianceColor = Alliance.RED;
     yRatios.forEach(yRatio => createRobotAt(width * redXRatio, height * yRatio));
@@ -190,8 +181,6 @@ function resetRobotPositions() {
     if (isReplaying) stopReplay();
 }
 
-// ---------- Interaction Helpers ---------- \\
-
 function getMousePosition(evt) {
     var CTM = fieldCanvas.getScreenCTM();
     return { x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d };
@@ -214,7 +203,6 @@ function selectElement(evt) {
     }
 
     if (currentCanvasMode == CanvasMode.DRAG) {
-        // Reset local timer if we grab a DIFFERENT robot during recording
         if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
             const existingPath = robotPaths.get(target);
             activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
@@ -252,11 +240,6 @@ function releaseElement(evt) {
     selectedElement = null;
 }
 
-function makeDragable(element) {
-    element.addEventListener("pointerdown", selectElement);
-    element.addEventListener("pointerup", releaseElement);
-}
-
 fieldCanvas.addEventListener("pointerdown", (event) => {
     const now = Date.now();
     if (now - lastClickTime > 400) clickCount = 0;
@@ -278,15 +261,6 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
         clickCount = 0;
     }
 });
-
-fieldCanvas.addEventListener("pointermove", (event) => {
-    if (currentCanvasMode == CanvasMode.DRAG && selectedElement) {
-        let position = getMousePosition(event);
-        transform.setTranslate(position.x - offset.x, position.y - offset.y);
-    }
-});
-
-// ---------- Record & Replay Logic ---------- \\
 
 function toggleRecording() {
     if (isReplaying) stopReplay();
@@ -338,8 +312,6 @@ function stopReplay() {
 }
 
 function updateTimer(seconds) { timerDisplay.innerHTML = seconds.toFixed(2) + "s"; }
-
-// ---------- Global Helpers ---------- \\
 
 function addImage(xpos, ypos, angle, src, size, parent) {
     let img = document.createElementNS("http://www.w3.org/2000/svg", "image");
