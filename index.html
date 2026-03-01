@@ -9,19 +9,16 @@
     <script defer src="listeners.js"></script>
     <link rel="shortcut icon" href="./assets/greenswerve.svg" />
     <style>
-      /* מניעת פעולות ברירת מחדל של המכשיר על הקנבס */
       #field-canvas, #field-background, .robot-group {
         touch-action: none;
         -webkit-user-select: none;
         user-select: none;
         -webkit-touch-callout: none;
       }
- 
 
       .record-active { background-color: #ff4444 !important; color: white; box-shadow: 0 0 10px red; }
       .play-active { background-color: #44ff44 !important; color: black; box-shadow: 0 0 10px green; }
       
-
       #timer-display {
         position: absolute;
         top: 80px;
@@ -69,6 +66,8 @@
         background: #3172e0;
         border-color: #4facfe;
       }
+
+      .info-placeholder { cursor: pointer; }
     </style>
   </head>
   <body>
@@ -117,6 +116,7 @@
       <g id="draw-layer-END-GAME" style="display:none"></g>
 
       <g id="stage-canvas"></g>
+      <g id="info-placeholders-group"></g>
     </svg>
 
     <img id="settings" src="icons/gears.svg" onclick="document.getElementById('sidebar').classList.replace('closed', 'open')" />
@@ -127,8 +127,6 @@
       <button class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
       <button class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
       <button id="piece-button" class="non-active" onclick="setMode(CanvasMode.PIECE)" style="background-image: url('25assets/display-coral.svg');"></button>
-      <button class="non-active" onclick="setMode(CanvasMode.POLYGON)" style="background-image: url('icons/hexagon.svg')"></button>
-      <button id="robot-button" class="other-non-active" onclick="setMode(CanvasMode.ROBOT)" style="background-image: url('icons/blueroboticon.svg')"></button>
       
       <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()" style="font-weight: bold; font-size: 10px; color: #3172e0;">RESET BOTS</button>
       <button id="record-btn" class="non-active" onclick="toggleRecording()" style="font-weight: bold; color: #ff4444;">REC</button>

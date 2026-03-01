@@ -29,6 +29,9 @@ var clickStartTime = 0;
 var lastClickTime = 0;
 var clickCount = 0;
 
+// Placeholder Logic
+var selectedPlaceholder = null;
+
 // ---------- Tab System State ---------- \\
 var currentTabId = 'AUTO';
 const tabNames = ['AUTO', 'TRA SHIFT', 'ALL SHIFT 1', 'ALL SHIFT 2', 'ALL SHIFT 3', 'ALL SHIFT 4', 'END GAME'];
@@ -57,9 +60,70 @@ var currentFrameIndex = 0;
 window.onload = function () { 
     resizeCanvas(); 
     spawnInitialRobots();
+    createPlaceholders();
     captureAllTabPositions();
 };
-window.onresize = function () { resizeCanvas(); };
+window.onresize = function () { 
+    resizeCanvas(); 
+    createPlaceholders(); // Add this line here
+};
+
+function createPlaceholders() {
+    const container = document.getElementById("info-placeholders-group");
+    container.innerHTML = ""; // Clear existing to prevent duplicates on resize
+
+    // Get the actual position and size of the field image
+    const bgRect = background.getBoundingClientRect();
+    const svgRect = fieldCanvas.getBoundingClientRect();
+
+    // Calculate where the image starts relative to the SVG
+    const offsetX = bgRect.left - svgRect.left;
+    const offsetY = bgRect.top - svgRect.top;
+
+    // Define positions relative to the TOP-LEFT of the field image
+    // You can adjust these numbers (50, 110, etc.) to place them exactly where you want on the map
+    const positions = [
+        {x: 60, y: 60}, {x: 60, y: 120}, {x: 60, y: 180},
+        {x: 130, y: 60}, {x: 130, y: 120}, {x: 130, y: 180}
+    ];
+
+    positions.forEach((pos) => {
+        let group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        
+        // Add the offsets so they stick to the image, not the screen
+        const finalX = offsetX + (pos.x * heightRatio);
+        const finalY = offsetY + (pos.y * heightRatio);
+        
+        group.setAttribute("transform", `translate(${finalX}, ${finalY})`);
+        group.classList.add("info-placeholder");
+
+        let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", 20 * heightRatio); // Scale circle size too
+        circle.setAttribute("fill", "rgba(0,0,0,0.6)");
+        circle.setAttribute("stroke", "white");
+        circle.setAttribute("stroke-width", "2");
+
+        let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("dominant-baseline", "middle");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("fill", "white");
+        text.style.fontSize = (currentTextSize) + "px";
+        text.style.fontFamily = "monospace";
+        text.style.fontWeight = "900";
+        text.textContent = "?";
+
+        group.appendChild(circle);
+        group.appendChild(text);
+        container.appendChild(group);
+
+        group.addEventListener("click", (e) => {
+            e.stopPropagation();
+            document.querySelectorAll(".info-placeholder circle").forEach(c => c.setAttribute("stroke", "white"));
+            selectedPlaceholder = group;
+            circle.setAttribute("stroke", "#44ff44");
+        });
+    });
+}
 
 function captureCurrentPositions() {
     let allBots = [...redRobots, ...blueRobots];
@@ -82,30 +146,23 @@ function captureAllTabPositions() {
 
 function switchTab(newTabId) {
     if (newTabId === currentTabId) return;
-
     captureCurrentPositions();
     tabStates[currentTabId].recordingTime = activeRobotTime;
-
     document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`).style.display = 'none';
     document.getElementById(`draw-layer-${newTabId.replace(/ /g, '-')}`).style.display = 'block';
-
     currentTabId = newTabId;
     robotPaths = tabStates[currentTabId].robotPaths;
     activeRobotTime = tabStates[currentTabId].recordingTime;
-
     let allBots = [...redRobots, ...blueRobots];
     let savedPos = tabStates[currentTabId].positions;
-    
     allBots.forEach((bot, index) => {
         if (savedPos[index]) {
             bot.robotElement.parentNode.transform.baseVal.getItem(0).setTranslate(savedPos[index].x, savedPos[index].y);
         }
     });
-
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.toggle('active-tab', btn.innerText === newTabId);
     });
-
     if (isReplaying) stopReplay();
     updateTimer(activeRobotTime);
 }
@@ -126,7 +183,6 @@ function spawnInitialRobots() {
     const yRatios = [0.23, 0.50, 0.76];
     const redXRatio = 0.15;            
     const blueXRatio = 0.85;           
-
     allianceColor = Alliance.RED;
     yRatios.forEach(yRatio => createRobotAt(width * redXRatio, height * yRatio));
     allianceColor = Alliance.BLUE;
@@ -140,18 +196,15 @@ function createRobotAt(x, y) {
     let robotGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     robotGroup.setAttribute("transform", `translate(${x},${y})`);
     robotGroup.classList.add("robot-group");
-
     let driveId = (isRed ? "r" : "b") + (robotList.length + 1);
     let robotImg = addImage(0, 0, 90, "assets/" + (isRed ? "r" : "b") + "swerve.svg", currentRobotSize * heightRatio, robotGroup);
     robotImg.setAttribute("class", (isRed ? "r" : "b") + "bot");
-
     let teamNumText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     teamNumText.innerHTML = document.getElementById(driveId)?.value || (isRed ? robotList.length + 4 : robotList.length + 1);
     teamNumText.style = `font-family: monospace; font-weight: 900; pointer-events: none; font-size: ${currentTextSize}px;`;
     teamNumText.setAttribute("fill", "#FFF");
     teamNumText.setAttribute("dominant-baseline", "middle");
     teamNumText.setAttribute("text-anchor", "middle");
-
     robotGroup.appendChild(teamNumText);
     stageCanvas.appendChild(robotGroup);
     makeDragable(robotGroup);
@@ -165,7 +218,6 @@ function resetRobotPositions() {
     const yRatios = [0.23, 0.50, 0.76];
     const redXRatio = 0.15;
     const blueXRatio = 0.85;
-
     redRobots.forEach((robot, index) => {
         const group = robot.robotElement.parentNode;
         group.transform.baseVal.getItem(0).setTranslate(width * redXRatio, height * yRatios[index]);
@@ -174,7 +226,6 @@ function resetRobotPositions() {
         const group = robot.robotElement.parentNode;
         group.transform.baseVal.getItem(0).setTranslate(width * blueXRatio, height * yRatios[index]);
     });
-    
     robotPaths.clear();
     activeRobotTime = 0;
     updateTimer(0);
@@ -186,38 +237,118 @@ function getMousePosition(evt) {
     return { x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d };
 }
 
-function clearDrawingsOnly() {
-    const layer = document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`);
-    while(layer.firstChild) layer.removeChild(layer.firstChild);
-    setMode(CanvasMode.PEN);
+function getActiveLayer() {
+  const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
+  return document.getElementById(layerId) || stageCanvas;
 }
+
+// LISTENERS
+fieldCanvas.addEventListener("pointermove", (event) => {
+  let position = getMousePosition(event);
+  if (currentCanvasMode == CanvasMode.ARROW && currentArrow != null) {
+      currentArrow.setAttribute("x2", position.x);
+      currentArrow.setAttribute("y2", position.y);
+  } else if (currentCanvasMode == CanvasMode.DRAG && selectedElement) {
+      event.preventDefault(); 
+      transform.setTranslate(position.x - offset.x, position.y - offset.y);
+  } else if (currentCanvasMode == CanvasMode.PEN && currentPenPath) {
+      event.preventDefault(); 
+      currentPenPath.setAttribute("points", currentPenPath.getAttribute("points") + position.x + " " + position.y + " ");
+  } else if (currentCanvasMode == CanvasMode.DELETE && (event.buttons != 0 || event.pointerType === 'touch')) {
+    let target = document.elementFromPoint(event.clientX, event.clientY);
+    if (target && target !== fieldCanvas && target.id !== "field-background") {
+      let isRobot = target.closest('.robot-group');
+      if (!isRobot) target.remove();
+    }
+  }
+});
+
+fieldCanvas.addEventListener("pointerdown", (event) => {
+  const now = Date.now();
+  if (now - lastClickTime > 400) clickCount = 0;
+  clickCount++;
+  lastClickTime = now;
+
+  if (event.target === fieldCanvas || event.target.id === "field-background") {
+    colorPicker.style.display = "none";
+    selectedPlaceholder = null;
+    document.querySelectorAll(".info-placeholder circle").forEach(c => c.setAttribute("stroke", "white"));
+    if (clickCount === 3) { clearDrawingsOnly(); clickCount = 0; return; }
+    if (clickCount === 2) { setMode(CanvasMode.DRAG); return; }
+  } else {
+    clickCount = 0;
+  }
+
+  if (!document.getElementById("sidebar").classList.contains("open")) {
+    var position = getMousePosition(event);
+    const activeLayer = getActiveLayer();
+
+    if (currentCanvasMode == CanvasMode.PIECE) {
+      var piece = addImage(position.x, position.y, 0, "25assets/coral.svg", 30 * heightRatio, activeLayer);
+      makeDragable(piece);
+    } else if (currentCanvasMode == CanvasMode.ARROW && currentArrow == null) {
+        currentArrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        currentArrow.setAttribute("stroke", selectedColor);
+        currentArrow.setAttribute("x1", position.x);
+        currentArrow.setAttribute("y1", position.y);
+        currentArrow.setAttribute("x2", position.x);
+        currentArrow.setAttribute("y2", position.y);
+        currentArrow.setAttribute("stroke-width", 4);
+        currentArrow.setAttribute("marker-end", "url(#ah" + selectedColor.replace('#', '') + ")");
+        activeLayer.appendChild(currentArrow);
+        makeDragable(currentArrow);
+    } else if (currentCanvasMode == CanvasMode.PEN) {
+      currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      currentPenPath.setAttribute("stroke", selectedColor);
+      currentPenPath.setAttribute("fill", "none");
+      currentPenPath.setAttribute("points", position.x + "," + position.y + " ");
+      currentPenPath.setAttribute("stroke-width", 4);
+      currentPenPath.setAttribute("stroke-linecap", "round");
+      activeLayer.appendChild(currentPenPath);
+      makeDragable(currentPenPath);
+    }
+  } else {
+    document.getElementById("sidebar").classList.replace("open", "closed");
+  }
+});
+
+fieldCanvas.addEventListener("pointerup", (event) => {
+  currentArrow = null;
+  currentPenPath = null;
+});
 
 function selectElement(evt) {
     evt.stopPropagation();
     let target = evt.currentTarget;
 
-    // טיפול במחיקה בלחיצה ישירה
-    if (currentCanvasMode == CanvasMode.DELETE) {
-        if (!target.classList.contains("robot-group")) {
-            target.remove();
-            return; // עוצר כאן כדי לא להתחיל גרירה של משהו שנמחק
+    if (selectedPlaceholder && target.classList.contains("robot-group")) {
+        let robotText = target.querySelector("text");
+        let placeholderText = selectedPlaceholder.querySelector("text");
+        let placeholderCircle = selectedPlaceholder.querySelector("circle");
+        if (robotText && placeholderText) {
+            placeholderText.textContent = robotText.textContent;
+            placeholderText.setAttribute("fill", robotText.getAttribute("fill"));
+            placeholderCircle.setAttribute("stroke", robotText.getAttribute("fill"));
         }
+        selectedPlaceholder = null;
         return;
     }
 
+    if (currentCanvasMode == CanvasMode.DELETE) {
+        if (!target.classList.contains("robot-group")) target.remove();
+        return;
+    }
     if (currentCanvasMode == CanvasMode.PEN) {
         let text = target.querySelector("text");
         if (text) changeColor(text.getAttribute("fill"));
         return;
     }
-
     if (currentCanvasMode == CanvasMode.DRAG) {
         if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
             const existingPath = robotPaths.get(target);
             activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
             updateTimer(activeRobotTime);
         }
-
         selectedElement = target;
         clickStartTime = Date.now();
         offset = getMousePosition(evt);
@@ -245,27 +376,10 @@ function releaseElement(evt) {
     selectedElement = null;
 }
 
-fieldCanvas.addEventListener("pointerdown", (event) => {
-    const now = Date.now();
-    if (now - lastClickTime > 400) clickCount = 0;
-    clickCount++;
-    lastClickTime = now;
-
-    if (event.target === fieldCanvas || event.target.id === "field-background") {
-        colorPicker.style.display = "none";
-        if (clickCount === 3) {
-            clearDrawingsOnly();
-            clickCount = 0;
-            return;
-        }
-        if (clickCount === 2) {
-            setMode(CanvasMode.DRAG);
-            return;
-        }
-    } else {
-        clickCount = 0;
-    }
-});
+function makeDragable(element) {
+  element.addEventListener("pointerdown", selectElement);
+  element.addEventListener("pointerup", releaseElement);
+}
 
 function toggleRecording() {
     if (isReplaying) stopReplay();
@@ -330,7 +444,7 @@ function addImage(xpos, ypos, angle, src, size, parent) {
 function setMode(mode) {
     currentCanvasMode = mode;
     document.querySelectorAll('#tools button').forEach(b => b.classList.remove("active", "other-active"));
-    const modeIds = ["", "pen", "drag-tool", "", "robot-button", "piece-button", ""];
+    const modeIds = ["", "pen", "drag-tool", "", "", "piece-button", ""];
     const activeBtn = document.getElementById(modeIds[mode]);
     if (activeBtn) activeBtn.classList.add("active");
 }
@@ -376,7 +490,7 @@ function updateAllRobotSizes(s) {
 
 function updateAllTextSizes(s) {
     currentTextSize = s;
-    document.querySelectorAll(".robot-group text").forEach(t => t.style.fontSize = s + "px");
+    document.querySelectorAll(".robot-group text, .info-placeholder text").forEach(t => t.style.fontSize = s + "px");
 }
 
 class Robot {
