@@ -1,5 +1,6 @@
 const fieldCanvas = document.getElementById("field-canvas");
 const stageCanvas = document.getElementById("stage-canvas");
+const slotsLayer = document.getElementById("slots-layer");
 const background = document.getElementById("field-background");
 const colorPicker = document.getElementById("robot-color-picker");
 const timerDisplay = document.getElementById("timer-display");
@@ -29,6 +30,13 @@ var clickStartTime = 0;
 var lastClickTime = 0;
 var clickCount = 0;
 
+// Slot State
+var pendingSlot = null;
+const slotCoords = [
+    {x: 145, y: 270}, {x: 145, y: 490}, {x: 145, y: 880},
+    {x: 2400, y: 420}, {x: 2400, y: 807}, {x: 2400, y: 1040}
+];
+
 // ---------- Tab System State ---------- \\
 var currentTabId = 'AUTO';
 const tabNames = ['AUTO', 'TRA SHIFT', 'ALL SHIFT 1', 'ALL SHIFT 2', 'ALL SHIFT 3', 'ALL SHIFT 4', 'END GAME'];
@@ -45,21 +53,50 @@ tabNames.forEach(name => {
 var robotPaths = tabStates[currentTabId].robotPaths;
 var activeRobotTime = 0;
 
-// ---------- Replay System ---------- \\
-var isRecording = false;
-var isReplaying = false;
-var recordInterval = null;
-var replayInterval = null;
-var currentFrameIndex = 0;
-
 // ---------- Initialization ---------- \\
 
 window.onload = function () { 
     resizeCanvas(); 
     spawnInitialRobots();
+    initSlots();
     captureAllTabPositions();
 };
 window.onresize = function () { resizeCanvas(); };
+
+function initSlots() {
+    slotsLayer.innerHTML = "";
+    slotCoords.forEach(coord => {
+        let group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("transform", `translate(${coord.x}, ${coord.y})`);
+        group.classList.add("slot-group");
+        
+        let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", 40);
+        circle.setAttribute("fill", "rgba(255,255,255,0.2)");
+        circle.setAttribute("stroke", "white");
+        circle.setAttribute("stroke-width", "2");
+        
+        let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("fill", "white");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("dominant-baseline", "middle");
+        text.style.fontFamily = "monospace";
+        text.style.fontWeight = "900";
+        text.style.fontSize = currentTextSize + "px";
+        text.style.pointerEvents = "none";
+
+        group.appendChild(circle);
+        group.appendChild(text);
+        slotsLayer.appendChild(group);
+
+        group.addEventListener("pointerdown", (e) => {
+            e.stopPropagation();
+            if (pendingSlot) pendingSlot.classList.remove("slot-active");
+            pendingSlot = group;
+            group.classList.add("slot-active");
+        });
+    });
+}
 
 function captureCurrentPositions() {
     let allBots = [...redRobots, ...blueRobots];
@@ -82,30 +119,23 @@ function captureAllTabPositions() {
 
 function switchTab(newTabId) {
     if (newTabId === currentTabId) return;
-
     captureCurrentPositions();
     tabStates[currentTabId].recordingTime = activeRobotTime;
-
     document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`).style.display = 'none';
     document.getElementById(`draw-layer-${newTabId.replace(/ /g, '-')}`).style.display = 'block';
-
     currentTabId = newTabId;
     robotPaths = tabStates[currentTabId].robotPaths;
     activeRobotTime = tabStates[currentTabId].recordingTime;
-
     let allBots = [...redRobots, ...blueRobots];
     let savedPos = tabStates[currentTabId].positions;
-    
     allBots.forEach((bot, index) => {
         if (savedPos[index]) {
             bot.robotElement.parentNode.transform.baseVal.getItem(0).setTranslate(savedPos[index].x, savedPos[index].y);
         }
     });
-
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.toggle('active-tab', btn.innerText === newTabId);
     });
-
     if (isReplaying) stopReplay();
     updateTimer(activeRobotTime);
 }
@@ -126,7 +156,6 @@ function spawnInitialRobots() {
     const yRatios = [0.23, 0.50, 0.76];
     const redXRatio = 0.15;            
     const blueXRatio = 0.85;           
-
     allianceColor = Alliance.RED;
     yRatios.forEach(yRatio => createRobotAt(width * redXRatio, height * yRatio));
     allianceColor = Alliance.BLUE;
@@ -140,18 +169,15 @@ function createRobotAt(x, y) {
     let robotGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     robotGroup.setAttribute("transform", `translate(${x},${y})`);
     robotGroup.classList.add("robot-group");
-
     let driveId = (isRed ? "r" : "b") + (robotList.length + 1);
     let robotImg = addImage(0, 0, 90, "assets/" + (isRed ? "r" : "b") + "swerve.svg", currentRobotSize * heightRatio, robotGroup);
     robotImg.setAttribute("class", (isRed ? "r" : "b") + "bot");
-
     let teamNumText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     teamNumText.innerHTML = document.getElementById(driveId)?.value || (isRed ? robotList.length + 4 : robotList.length + 1);
     teamNumText.style = `font-family: monospace; font-weight: 900; pointer-events: none; font-size: ${currentTextSize}px;`;
     teamNumText.setAttribute("fill", "#FFF");
     teamNumText.setAttribute("dominant-baseline", "middle");
     teamNumText.setAttribute("text-anchor", "middle");
-
     robotGroup.appendChild(teamNumText);
     stageCanvas.appendChild(robotGroup);
     makeDragable(robotGroup);
@@ -165,7 +191,6 @@ function resetRobotPositions() {
     const yRatios = [0.23, 0.50, 0.76];
     const redXRatio = 0.15;
     const blueXRatio = 0.85;
-
     redRobots.forEach((robot, index) => {
         const group = robot.robotElement.parentNode;
         group.transform.baseVal.getItem(0).setTranslate(width * redXRatio, height * yRatios[index]);
@@ -174,7 +199,6 @@ function resetRobotPositions() {
         const group = robot.robotElement.parentNode;
         group.transform.baseVal.getItem(0).setTranslate(width * blueXRatio, height * yRatios[index]);
     });
-    
     robotPaths.clear();
     activeRobotTime = 0;
     updateTimer(0);
@@ -185,87 +209,6 @@ function getMousePosition(evt) {
     var CTM = fieldCanvas.getScreenCTM();
     return { x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d };
 }
-
-function clearDrawingsOnly() {
-    const layer = document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`);
-    while(layer.firstChild) layer.removeChild(layer.firstChild);
-    setMode(CanvasMode.PEN);
-}
-
-function selectElement(evt) {
-    evt.stopPropagation();
-    let target = evt.currentTarget;
-
-    // טיפול במחיקה בלחיצה ישירה
-    if (currentCanvasMode == CanvasMode.DELETE) {
-        if (!target.classList.contains("robot-group")) {
-            target.remove();
-            return; // עוצר כאן כדי לא להתחיל גרירה של משהו שנמחק
-        }
-        return;
-    }
-
-    if (currentCanvasMode == CanvasMode.PEN) {
-        let text = target.querySelector("text");
-        if (text) changeColor(text.getAttribute("fill"));
-        return;
-    }
-
-    if (currentCanvasMode == CanvasMode.DRAG) {
-        if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
-            const existingPath = robotPaths.get(target);
-            activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
-            updateTimer(activeRobotTime);
-        }
-
-        selectedElement = target;
-        clickStartTime = Date.now();
-        offset = getMousePosition(evt);
-        let transforms = selectedElement.transform.baseVal;
-        if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
-            let translate = fieldCanvas.createSVGTransform();
-            translate.setTranslate(0, 0);
-            selectedElement.transform.baseVal.insertItemBefore(translate, 0);
-        }
-        transform = transforms.getItem(0);
-        offset.x -= transform.matrix.e;
-        offset.y -= transform.matrix.f;
-    }
-}
-
-function releaseElement(evt) {
-    if (selectedElement && selectedElement.classList.contains("robot-group") && currentCanvasMode == CanvasMode.DRAG) {
-        if (Date.now() - clickStartTime < CLICK_THRESHOLD) {
-            robotToColor = selectedElement;
-            colorPicker.style.left = evt.clientX + "px";
-            colorPicker.style.top = evt.clientY + "px";
-            colorPicker.style.display = "block";
-        }
-    }
-    selectedElement = null;
-}
-
-fieldCanvas.addEventListener("pointerdown", (event) => {
-    const now = Date.now();
-    if (now - lastClickTime > 400) clickCount = 0;
-    clickCount++;
-    lastClickTime = now;
-
-    if (event.target === fieldCanvas || event.target.id === "field-background") {
-        colorPicker.style.display = "none";
-        if (clickCount === 3) {
-            clearDrawingsOnly();
-            clickCount = 0;
-            return;
-        }
-        if (clickCount === 2) {
-            setMode(CanvasMode.DRAG);
-            return;
-        }
-    } else {
-        clickCount = 0;
-    }
-});
 
 function toggleRecording() {
     if (isReplaying) stopReplay();
@@ -287,6 +230,8 @@ function toggleRecording() {
         clearInterval(recordInterval);
     }
 }
+
+var isRecording = false, isReplaying = false, recordInterval = null, replayInterval = null, currentFrameIndex = 0;
 
 function toggleReplay() {
     if (isRecording) toggleRecording();
@@ -330,7 +275,7 @@ function addImage(xpos, ypos, angle, src, size, parent) {
 function setMode(mode) {
     currentCanvasMode = mode;
     document.querySelectorAll('#tools button').forEach(b => b.classList.remove("active", "other-active"));
-    const modeIds = ["", "pen", "drag-tool", "", "robot-button", "piece-button", ""];
+    const modeIds = ["", "pen", "drag-tool", "", "robot-button", "piece-button", "arrow-tool"];
     const activeBtn = document.getElementById(modeIds[mode]);
     if (activeBtn) activeBtn.classList.add("active");
 }
@@ -346,7 +291,8 @@ colorPicker.addEventListener("input", (e) => {
 });
 
 function clearField() {
-    clearDrawingsOnly();
+    const layer = document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`);
+    while(layer.firstChild) layer.removeChild(layer.firstChild);
     robotPaths.clear();
     activeRobotTime = 0;
     updateTimer(0);
@@ -376,7 +322,7 @@ function updateAllRobotSizes(s) {
 
 function updateAllTextSizes(s) {
     currentTextSize = s;
-    document.querySelectorAll(".robot-group text").forEach(t => t.style.fontSize = s + "px");
+    document.querySelectorAll(".robot-group text, .slot-group text").forEach(t => t.style.fontSize = s + "px");
 }
 
 class Robot {
