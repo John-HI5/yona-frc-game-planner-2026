@@ -29,12 +29,14 @@ var clickStartTime = 0;
 var lastClickTime = 0;
 var clickCount = 0;
 
+// Slot State
 var pendingSlot = null;
 const slotCoords = [
     {x: 145, y: 270}, {x: 145, y: 490}, {x: 145, y: 880},
     {x: 2400, y: 420}, {x: 2400, y: 807}, {x: 2400, y: 1040}
 ];
 
+// ---------- Tab System State ---------- \\
 var currentTabId = 'AUTO';
 const tabNames = ['AUTO', 'TRA SHIFT', 'ALL SHIFT 1', 'ALL SHIFT 2', 'ALL SHIFT 3', 'ALL SHIFT 4', 'END GAME'];
 
@@ -49,6 +51,8 @@ tabNames.forEach(name => {
 
 var robotPaths = tabStates[currentTabId].robotPaths;
 var activeRobotTime = 0;
+
+// ---------- Initialization ---------- \\
 
 window.onload = function () { 
     resizeCanvas(); 
