@@ -127,8 +127,8 @@
     <div id="tools" class="button-bar">
       <button id="drag-tool" class="non-active" onclick="setMode(CanvasMode.DRAG)" style="background-image: url('icons/select.svg')"></button>
       <button class="non-active" onclick="setMode(CanvasMode.DELETE)" style="background-image: url(icons/delete.svg)"></button>
-      <button class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
-      <button class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
+      <button id="pen" class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
+      <button id="arrow-tool" class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
       <button id="piece-button" class="non-active" onclick="setMode(CanvasMode.PIECE)" style="background-image: url('25assets/display-coral.svg');"></button>
       <button id="robot-button" class="other-non-active" onclick="setMode(CanvasMode.ROBOT)" style="background-image: url('icons/blueroboticon.svg')"></button>
       
@@ -159,35 +159,7 @@
               </select>
             </td>
           </tr>
-          <tr>
-            <td>
-              <input id="b2" type="number" placeholder="Blue 2" value="2" onchange="blueRobots.at(1)?.updateTeamNumber(event)">
-              <select id="b2d" onchange="blueRobots.at(1)?.updateDriveTrain(event)">
-                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
-              </select>
-            </td>
-            <td>
-              <input id="r2" type="number" placeholder="Red 2" value="5" onchange="redRobots.at(1)?.updateTeamNumber(event)">
-              <select id="r2d" onchange="redRobots.at(1)?.updateDriveTrain(event)">
-                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
-              </select>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <input id="b3" type="number" placeholder="Blue 3" value="3" onchange="blueRobots.at(2)?.updateTeamNumber(event)">
-              <select id="b3d" onchange="blueRobots.at(2)?.updateDriveTrain(event)">
-                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
-              </select>
-            </td>
-            <td>
-              <input id="r3" type="number" placeholder="Red 3" value="6" onchange="redRobots.at(2)?.updateTeamNumber(event)">
-              <select id="r3d" onchange="redRobots.at(2)?.updateDriveTrain(event)">
-                <option value="tank">Tank</option><option value="mecanum">Mecanum</option><option value="swerve" selected>Swerve</option>
-              </select>
-            </td>
-          </tr>
-        </table>
+          </table>
   
         <hr style="width: 90%; margin: auto;">
         <div style="padding: 10px; color: white;">

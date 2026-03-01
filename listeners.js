@@ -1,4 +1,3 @@
-// Function to get the current active drawing layer based on the tab
 function getActiveLayer() {
   const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
   return document.getElementById(layerId) || stageCanvas;
@@ -34,9 +33,7 @@ fieldCanvas.addEventListener("pointermove", (event) => {
     if (target && target !== fieldCanvas && target.id !== "field-background") {
       let isRobot = target.closest('.robot-group');
       let isSlot = target.closest('.slot-group');
-      if (!isRobot && !isSlot) {
-        target.remove();
-      }
+      if (!isRobot && !isSlot) target.remove();
     }
   }
 });
@@ -63,14 +60,17 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
         makeDragable(currentArrow);
       }
     } else if (currentCanvasMode == CanvasMode.PEN) {
-      currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-      currentPenPath.setAttribute("stroke", selectedColor);
-      currentPenPath.setAttribute("fill", "none");
-      currentPenPath.setAttribute("points", position.x + "," + position.y + " ");
-      currentPenPath.setAttribute("stroke-width", 4);
-      currentPenPath.setAttribute("stroke-linecap", "round");
-      activeLayer.appendChild(currentPenPath);
-      makeDragable(currentPenPath);
+      // Fix: Don't start path if clicking on a robot (logic handled in selectElement)
+      if (!event.target.closest('.robot-group')) {
+        currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        currentPenPath.setAttribute("stroke", selectedColor);
+        currentPenPath.setAttribute("fill", "none");
+        currentPenPath.setAttribute("points", position.x + "," + position.y + " ");
+        currentPenPath.setAttribute("stroke-width", 4);
+        currentPenPath.setAttribute("stroke-linecap", "round");
+        activeLayer.appendChild(currentPenPath);
+        makeDragable(currentPenPath);
+      }
     }
   } else {
     document.getElementById("sidebar").classList.replace("open", "closed");
@@ -90,6 +90,12 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
           pendingSlot = null;
       }
       if (clickCount === 2) setMode(CanvasMode.DRAG);
+      // FIX 1: Triple click deletes drawing and goes to pen mode
+      if (clickCount === 3) {
+          clearField();
+          setMode(CanvasMode.PEN);
+          clickCount = 0;
+      }
   }
 });
 
@@ -107,24 +113,29 @@ function selectElement(evt) {
     evt.stopPropagation();
     let target = evt.currentTarget;
 
-    // --- Slot Inheritance Logic ---
+    // FIX 2: Robot click in PEN mode sets the pen color
+    if (currentCanvasMode == CanvasMode.PEN && target.classList.contains("robot-group")) {
+        let txt = target.querySelector("text");
+        if (txt) {
+            let robotColor = txt.getAttribute("fill") || txt.style.fill;
+            changeColor(robotColor);
+        }
+        return; 
+    }
+
     if (pendingSlot && target.classList.contains("robot-group")) {
         let robotNum = target.querySelector("text").innerHTML;
         let robotColor = target.querySelector("text").getAttribute("fill") || target.querySelector("text").style.fill;
-        
         let slotText = pendingSlot.querySelector("text");
         slotText.innerHTML = robotNum;
         slotText.setAttribute("fill", robotColor);
-        
         pendingSlot.classList.remove("slot-active");
         pendingSlot = null;
-        return; // Don't drag if we are just linking
+        return;
     }
 
     if (currentCanvasMode == CanvasMode.DELETE) {
-        if (!target.classList.contains("robot-group") && !target.classList.contains("slot-group")) {
-            target.remove();
-        }
+        if (!target.classList.contains("robot-group") && !target.classList.contains("slot-group")) target.remove();
         return;
     }
 
@@ -134,7 +145,6 @@ function selectElement(evt) {
             activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
             updateTimer(activeRobotTime);
         }
-
         selectedElement = target;
         clickStartTime = Date.now();
         offset = getMousePosition(evt);

@@ -5,7 +5,6 @@ const background = document.getElementById("field-background");
 const colorPicker = document.getElementById("robot-color-picker");
 const timerDisplay = document.getElementById("timer-display");
 
-// ---------- Constants & State ---------- \\
 var currentRobotSize = 60;
 var currentTextSize = 14;
 const CLICK_THRESHOLD = 200; 
@@ -30,14 +29,12 @@ var clickStartTime = 0;
 var lastClickTime = 0;
 var clickCount = 0;
 
-// Slot State
 var pendingSlot = null;
 const slotCoords = [
     {x: 145, y: 270}, {x: 145, y: 490}, {x: 145, y: 880},
     {x: 2400, y: 420}, {x: 2400, y: 807}, {x: 2400, y: 1040}
 ];
 
-// ---------- Tab System State ---------- \\
 var currentTabId = 'AUTO';
 const tabNames = ['AUTO', 'TRA SHIFT', 'ALL SHIFT 1', 'ALL SHIFT 2', 'ALL SHIFT 3', 'ALL SHIFT 4', 'END GAME'];
 
@@ -52,8 +49,6 @@ tabNames.forEach(name => {
 
 var robotPaths = tabStates[currentTabId].robotPaths;
 var activeRobotTime = 0;
-
-// ---------- Initialization ---------- \\
 
 window.onload = function () { 
     resizeCanvas(); 
@@ -175,7 +170,7 @@ function createRobotAt(x, y) {
     let teamNumText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     teamNumText.innerHTML = document.getElementById(driveId)?.value || (isRed ? robotList.length + 4 : robotList.length + 1);
     teamNumText.style = `font-family: monospace; font-weight: 900; pointer-events: none; font-size: ${currentTextSize}px;`;
-    teamNumText.setAttribute("fill", "#FFF");
+    teamNumText.setAttribute("fill", isRed ? "#F00" : "#00F");
     teamNumText.setAttribute("dominant-baseline", "middle");
     teamNumText.setAttribute("text-anchor", "middle");
     robotGroup.appendChild(teamNumText);
