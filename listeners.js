@@ -10,6 +10,11 @@ var currentPolygon = null;
 fieldCanvas.addEventListener("pointermove", (event) => {
   let position = getMousePosition(event);
   
+  // מניעת גלילה בטאץ' בזמן עבודה על המגרש
+  if (currentCanvasMode !== CanvasMode.DRAG || selectedElement) {
+    if (event.pointerType === 'touch') event.preventDefault();
+  }
+
   if (currentCanvasMode == CanvasMode.ARROW) {
     if (currentArrow != null) {
       currentArrow.setAttribute("x2", position.x);
@@ -28,15 +33,25 @@ fieldCanvas.addEventListener("pointermove", (event) => {
         currentPenPath.getAttribute("points") + position.x + " " + position.y + " "
       );
     }
-  } else if (currentCanvasMode == CanvasMode.DELETE && (event.buttons != 0 || event.pointerType === 'touch')) {
-    let target = document.elementFromPoint(event.clientX, event.clientY);
-    if (target && target !== fieldCanvas && target.id !== "field-background") {
-      let isRobot = target.closest('.robot-group');
-      let isSlot = target.closest('.slot-group');
-      if (!isRobot && !isSlot) target.remove();
+  } else if (currentCanvasMode == CanvasMode.DELETE) {
+    // מחיקה בטאץ' או עכבר לחוץ
+    if (event.buttons !== 0 || event.pointerType === 'touch') {
+      let target = document.elementFromPoint(event.clientX, event.clientY);
+      if (target && target !== fieldCanvas && target.id !== "field-background") {
+        let isRobot = target.closest('.robot-group');
+        let isSlot = target.closest('.slot-group');
+        
+        // מחיקה רק של אלמנטים גרפיים (לא רובוטים/סלוטים)
+        if (!isRobot && !isSlot) {
+            const validTags = ["path", "polyline", "line", "image", "circle"];
+            if (validTags.includes(target.tagName.toLowerCase())) {
+                target.remove();
+            }
+        }
+      }
     }
   }
-});
+}, { passive: false });
 
 fieldCanvas.addEventListener("pointerdown", (event) => {
   if (!document.getElementById("sidebar").classList.contains("open")) {
@@ -60,7 +75,6 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
         makeDragable(currentArrow);
       }
     } else if (currentCanvasMode == CanvasMode.PEN) {
-      // Fix: Don't start path if clicking on a robot (logic handled in selectElement)
       if (!event.target.closest('.robot-group')) {
         currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
         currentPenPath.setAttribute("stroke", selectedColor);
@@ -77,7 +91,6 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
     currentPolygon = null;
   }
 
-  // Handle Double/Triple clicks for resetting mode
   const now = Date.now();
   if (now - lastClickTime > 400) clickCount = 0;
   clickCount++;
@@ -90,7 +103,6 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
           pendingSlot = null;
       }
       if (clickCount === 2) setMode(CanvasMode.DRAG);
-      // FIX 1: Triple click deletes drawing and goes to pen mode
       if (clickCount === 3) {
           clearField();
           setMode(CanvasMode.PEN);
@@ -113,7 +125,6 @@ function selectElement(evt) {
     evt.stopPropagation();
     let target = evt.currentTarget;
 
-    // FIX 2: Robot click in PEN mode sets the pen color
     if (currentCanvasMode == CanvasMode.PEN && target.classList.contains("robot-group")) {
         let txt = target.querySelector("text");
         if (txt) {
