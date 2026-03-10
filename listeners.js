@@ -11,7 +11,7 @@ fieldCanvas.addEventListener("pointermove", (event) => {
   let position = getMousePosition(event);
   
   // 1. מניעת גלילה וזום של הדפדפן בזמן עבודה (קריטי לטאבלט)
-  if (currentCanvasMode !== CanvasMode.DRAG || selectedElement) {
+  if (currentCanvasMode !== CanvasMode.DRAG || selectedElement || isDraggingSlot) {
     if (event.pointerType === 'touch') {
         event.preventDefault();
     }
@@ -23,7 +23,24 @@ fieldCanvas.addEventListener("pointermove", (event) => {
       currentArrow.setAttribute("y2", position.y);
     }
   } else if (currentCanvasMode == CanvasMode.DRAG) {
-    if (selectedElement) {
+    // --- חדש: גרירת עיגולים לבנים (Slots) ---
+    if (isDraggingSlot && draggedSlotIndex !== null && pendingSlot) {
+      const newX = position.x - offset.x;
+      const newY = position.y - offset.y;
+      
+      // עדכון ויזואלי של המיקום
+      pendingSlot.setAttribute("transform", `translate(${newX}, ${newY})`);
+      
+      // עדכון הנתונים במערך המקורי כדי שישמר בשינוי רזולוציה
+      const bgRect = background.getBoundingClientRect();
+      const scaleX = bgRect.width / 2500;
+      const scaleY = bgRect.height / 1185;
+      
+      slotCoords[draggedSlotIndex].x = newX / scaleX;
+      slotCoords[draggedSlotIndex].y = newY / scaleY;
+    } 
+    // --- גרירת רובוטים (הקוד המקורי שלך) ---
+    else if (selectedElement) {
       transform.setTranslate(position.x - offset.x, position.y - offset.y);
     }
   } else if (currentCanvasMode == CanvasMode.PEN) {
@@ -35,13 +52,9 @@ fieldCanvas.addEventListener("pointermove", (event) => {
     }
   } 
   
-  
   // --- כלי המחיקה המשופר לטאץ' ---
   else if (currentCanvasMode == CanvasMode.DELETE) {
-    // בטאץ' pointerType הוא 'touch', בעכבר אנחנו בודקים אם הלחצן השמאלי לחוץ
     if (event.buttons !== 0 || event.pointerType === 'touch') {
-      
-      // בגלל שאצבע היא עבה, נבדוק 5 נקודות מסביב למרכז המגע כדי לא לפספס קווים דקים
       const offsets = [
         { dx: 0, dy: 0 },
         { dx: 40, dy: 10 },
@@ -50,15 +63,14 @@ fieldCanvas.addEventListener("pointermove", (event) => {
         { dx: -40, dy: 40 }
       ];
 
-      offsets.forEach(offset => {
-        let target = document.elementFromPoint(event.clientX + offset.dx, event.clientY + offset.dy);
+      offsets.forEach(off => {
+        let target = document.elementFromPoint(event.clientX + off.dx, event.clientY + off.dy);
         
         if (target && target !== fieldCanvas && target.id !== "field-background") {
           let isRobot = target.closest('.robot-group');
           let isSlot = target.closest('.slot-group');
           
           if (!isRobot && !isSlot) {
-            // מוחק את כל סוגי האלמנטים של הציור
             const validTags = ["path", "polyline", "line", "image", "circle", "ellipse"];
             if (validTags.includes(target.tagName.toLowerCase())) {
                 target.remove();
@@ -129,8 +141,11 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
 });
 
 fieldCanvas.addEventListener("pointerup", (event) => {
-  currentArrow = null;
-  currentPenPath = null;
+    currentArrow = null;
+    currentPenPath = null;
+    // Reset slot dragging
+    isDraggingSlot = false;
+    draggedSlotIndex = null;
 });
 
 function makeDragable(element) {
@@ -142,6 +157,7 @@ function selectElement(evt) {
     evt.stopPropagation();
     let target = evt.currentTarget;
 
+    // 1. Logic for Color Picking (Pen Mode)
     if (currentCanvasMode == CanvasMode.PEN && target.classList.contains("robot-group")) {
         let txt = target.querySelector("text");
         if (txt) {
@@ -151,6 +167,7 @@ function selectElement(evt) {
         return; 
     }
 
+    // 2. Logic for assigning a Robot to a Slot (Clicking a robot while a slot is active)
     if (pendingSlot && target.classList.contains("robot-group")) {
         let robotNum = target.querySelector("text").innerHTML;
         let robotColor = target.querySelector("text").getAttribute("fill") || target.querySelector("text").style.fill;
@@ -162,32 +179,64 @@ function selectElement(evt) {
         return;
     }
 
+    // 3. Delete Logic
     if (currentCanvasMode == CanvasMode.DELETE) {
         if (!target.classList.contains("robot-group") && !target.classList.contains("slot-group")) target.remove();
         return;
     }
 
+    // 4. Drag Logic
     if (currentCanvasMode == CanvasMode.DRAG) {
+        // --- NEW: Handle White Circle (Slot) Dragging ---
+        if (target.classList.contains("slot-group")) {
+            isDraggingSlot = true;
+            pendingSlot = target;
+            target.classList.add("slot-active");
+            
+            // Get the index from the attribute we set in initSlots
+            draggedSlotIndex = parseInt(target.getAttribute("data-index"));
+            
+            let mousePos = getMousePosition(evt);
+            let transforms = target.transform.baseVal;
+            
+            // Ensure a translate transform exists
+            if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
+                let translate = fieldCanvas.createSVGTransform();
+                translate.setTranslate(0, 0);
+                target.transform.baseVal.insertItemBefore(translate, 0);
+            }
+            
+            let matrix = transforms.getItem(0).matrix;
+            offset = {
+                x: mousePos.x - matrix.e,
+                y: mousePos.y - matrix.f
+            };
+            return; // Stop here so it doesn't run the robot logic below
+        }
+
+        // --- Original Robot Dragging Logic ---
         if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
             const existingPath = robotPaths.get(target);
             activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
             updateTimer(activeRobotTime);
         }
+        
         selectedElement = target;
         clickStartTime = Date.now();
         offset = getMousePosition(evt);
         let transforms = selectedElement.transform.baseVal;
+        
         if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
             let translate = fieldCanvas.createSVGTransform();
             translate.setTranslate(0, 0);
             selectedElement.transform.baseVal.insertItemBefore(translate, 0);
         }
+        
         transform = transforms.getItem(0);
         offset.x -= transform.matrix.e;
         offset.y -= transform.matrix.f;
     }
 }
-
 function releaseElement(evt) {
     if (selectedElement && selectedElement.classList.contains("robot-group") && currentCanvasMode == CanvasMode.DRAG) {
         if (Date.now() - clickStartTime < CLICK_THRESHOLD) {

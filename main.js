@@ -11,6 +11,10 @@ const background = document.getElementById("field-background");
 const colorPicker = document.getElementById("robot-color-picker");
 const timerDisplay = document.getElementById("timer-display");
 
+
+var isDraggingSlot = false;
+var draggedSlotIndex = null;
+
 var currentRobotSize = 60;
 var currentTextSize = 14;
 const CLICK_THRESHOLD = 200; 
@@ -234,7 +238,7 @@ function initSlots() {
         });
     });
 }
-*/
+
 function initSlots() {
     slotsLayer.innerHTML = "";
     const bgRect = background.getBoundingClientRect();
@@ -284,6 +288,72 @@ function initSlots() {
     });
 }
 
+*/
+
+function initSlots() {
+    slotsLayer.innerHTML = "";
+    const bgRect = background.getBoundingClientRect();
+    
+    const originalWidth = 2500; 
+    const originalHeight = 1185; 
+
+    const scaleX = bgRect.width / originalWidth;
+    const scaleY = bgRect.height / originalHeight;
+
+    slotCoords.forEach((coord, index) => {
+        let group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        
+        const posX = coord.x * scaleX;
+        const posY = coord.y * scaleY;
+        
+        group.setAttribute("transform", `translate(${posX}, ${posY})`);
+        group.classList.add("slot-group");
+        group.setAttribute("data-index", index); 
+        group.style.cursor = "move";
+        
+        let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", 40 * scaleX); 
+        circle.setAttribute("fill", "rgba(255,255,255,0.2)");
+        circle.setAttribute("stroke", "white");
+        circle.setAttribute("stroke-width", "2");
+        
+        let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("fill", "white");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("dominant-baseline", "middle");
+        text.style.fontFamily = "monospace";
+        text.style.fontWeight = "900";
+        text.style.fontSize = (currentTextSize * scaleX) + "px"; 
+        text.style.pointerEvents = "none";
+
+        group.appendChild(circle);
+        group.appendChild(text);
+        slotsLayer.appendChild(group);
+
+        group.addEventListener("pointerdown", (e) => {
+            e.stopPropagation();
+            
+            if (pendingSlot) pendingSlot.classList.remove("slot-active");
+            pendingSlot = group;
+            group.classList.add("slot-active");
+
+            if (currentCanvasMode === CanvasMode.DRAG) {
+                isDraggingSlot = true;
+                draggedSlotIndex = index;
+                
+                const mousePos = getMousePosition(e);
+                
+                // FIXED: Get the CURRENT position from the SVG transform, not the array
+                // This prevents the "jumping" bug
+                let matrix = group.transform.baseVal.getItem(0).matrix;
+                offset = {
+                    x: mousePos.x - matrix.e,
+                    y: mousePos.y - matrix.f
+                };
+            }
+        });
+    });
+}
 
 
 
