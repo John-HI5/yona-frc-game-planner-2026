@@ -1,3 +1,9 @@
+const slotCoords = [
+    {x: 145, y: 270-27}, {x: 145, y: 490-27}, {x: 145, y: 880-27-27-15},
+    {x: 2350, y: 420-27}, {x: 2350, y: 807-27-27-10}, {x: 2350, y: 1040-27-27-20}
+];
+
+
 const fieldCanvas = document.getElementById("field-canvas");
 const stageCanvas = document.getElementById("stage-canvas");
 const slotsLayer = document.getElementById("slots-layer");
@@ -30,10 +36,7 @@ var lastClickTime = 0;
 var clickCount = 0;
 
 var pendingSlot = null;
-const slotCoords = [
-    {x: 145, y: 270-27}, {x: 145, y: 490-27}, {x: 145, y: 880-27-27-15},
-    {x: 2350, y: 420-27}, {x: 2350, y: 807-27-27-10}, {x: 2350, y: 1040-27-27-20}
-];
+
 
 var currentTabId = 'AUTO';
 const tabNames = ['AUTO', 'TRA SHIFT', 'ALL SHIFT 1', 'ALL SHIFT 2', 'ALL SHIFT 3', 'ALL SHIFT 4', 'END GAME'];
@@ -454,6 +457,54 @@ function stopReplay() {
     clearInterval(replayInterval);
     document.getElementById("play-btn").classList.remove("play-active");
     updateTimer(activeRobotTime);
+}
+
+var slotLayoutScale = 1.0;
+var slotOffset = { x: 0, y: 0 };
+
+function updateSlotTransform() {
+    const scaleSlider = document.getElementById("slot-layout-scale");
+    slotLayoutScale = parseFloat(scaleSlider.value);
+    
+    const layer = document.getElementById("slots-layer");
+    
+    // We apply both Scale and Translate. 
+    // Note: We scale around the center of the field or top-left depending on your preference.
+    // This string moves the layer AND shrinks/grows the gaps between circles.
+    layer.setAttribute("transform", `translate(${slotOffset.x}, ${slotOffset.y}) scale(${slotLayoutScale})`);
+}
+
+// Update the Touchpad Logic to call the combined transform
+const touchpad = document.getElementById("slot-touchpad");
+const cursor = document.getElementById("touchpad-cursor");
+
+touchpad.addEventListener("pointermove", (e) => {
+    if (e.buttons !== 1) return;
+    
+    const rect = touchpad.getBoundingClientRect();
+    let percentX = (e.clientX - rect.left) / rect.width;
+    let percentY = (e.clientY - rect.top) / rect.height;
+    
+    percentX = Math.max(0, Math.min(1, percentX));
+    percentY = Math.max(0, Math.min(1, percentY));
+
+    cursor.style.left = (percentX * 100) + "%";
+    cursor.style.top = (percentY * 100) + "%";
+
+    // Sensitivity of the touchpad (adjust 600/400 to move further/less)
+    slotOffset.x = (percentX - 0.5) * 600; 
+    slotOffset.y = (percentY - 0.5) * 400;
+
+    updateSlotTransform();
+});
+
+function resetSlotTransform() {
+    slotLayoutScale = 1.0;
+    slotOffset = { x: 0, y: 0 };
+    document.getElementById("slot-layout-scale").value = 1.0;
+    cursor.style.left = "50%";
+    cursor.style.top = "50%";
+    updateSlotTransform();
 }
 
 function updateTimer(seconds) { timerDisplay.innerHTML = seconds.toFixed(2) + "s"; }
