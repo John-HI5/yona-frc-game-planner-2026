@@ -95,6 +95,19 @@ function handleFileSelect(event) {
 }
 
 
+function undoLastAction() {
+    // 1. Identify the current layer based on the active tab
+    const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
+    const layer = document.getElementById(layerId);
+
+    if (layer && layer.lastChild) {
+        // 2. Remove the last element added (polyline, line, or image)
+        layer.removeChild(layer.lastChild);
+    } else {
+        console.log("Nothing left to undo on this tab.");
+    }
+}
+
 
 function setCurrentAsDefault() {
     const bgRect = background.getBoundingClientRect();

@@ -157,11 +157,13 @@
     <img id="settings" src="icons/gears.svg" onclick="document.getElementById('sidebar').classList.replace('closed', 'open')" />
 
     <div id="tools" class="button-bar">
+      <button id="undo-btn" class="non-active" onclick="undoLastAction()" style="background-image: url('icons/undo.svg'); font-weight: bold; font-size: 10px; color: #43b35f;"></button>
       <button id="drag-tool" class="non-active" onclick="setMode(CanvasMode.DRAG)" style="background-image: url('icons/select.svg')"></button>
       <button id="delete-tool" class="non-active" onclick="setMode(CanvasMode.DELETE)" style="background-image: url(icons/delete.svg)"></button>
       <button id="pen" class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
       <button id="arrow-tool" class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
-<button id="set-default-btn" class="non-active" onclick="setCurrentAsDefault()" style="font-weight: bold; font-size: 10px; color: #3172e0;">SET DEF</button>
+      <button id="undo-btn" class="non-active" onclick="undoLastAction()" style="font-weight: bold; font-size: 10px; color: #3172e0;">UNDO</button>
+      
       <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()" style="font-weight: bold; font-size: 10px; color: #3172e0;">RESET BOTS</button>
       <button id="record-btn" class="non-active" onclick="toggleRecording()" style="font-weight: bold; color: hsl(0, 100%, 63%);">REC</button>
       <button id="play-btn" class="non-active" onclick="toggleReplay()" style="font-weight: bold; color: #44ff44;">PLAY</button>
