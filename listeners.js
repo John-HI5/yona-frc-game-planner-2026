@@ -247,4 +247,41 @@ function releaseElement(evt) {
         }
     }
     selectedElement = null;
+
 }
+
+// --- Button Actions ---
+
+window.undoLastAction = function() {
+    const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
+    const layer = document.getElementById(layerId);
+
+    if (layer && layer.lastChild) {
+        layer.removeChild(layer.lastChild);
+    }
+};
+
+window.setCurrentAsDefault = function() {
+    const bgRect = background.getBoundingClientRect();
+    const allBots = [...redRobots, ...blueRobots];
+
+    if (allBots.length === 0) return;
+
+    robotHomePositions = allBots.map(bot => {
+        const matrix = bot.robotElement.parentNode.transform.baseVal.getItem(0).matrix;
+        return { 
+            xPercent: matrix.e / bgRect.width, 
+            yPercent: matrix.f / bgRect.height 
+        };
+    });
+
+    tabNames.forEach(name => {
+        tabStates[name].positions = allBots.map((bot, index) => {
+            return { 
+                x: robotHomePositions[index].xPercent * bgRect.width, 
+                y: robotHomePositions[index].yPercent * bgRect.height 
+            };
+        });
+    });
+    alert("המיקומים נשמרו כברירת מחדל!");
+};
