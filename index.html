@@ -109,6 +109,13 @@
   <body>
     <div id="timer-display">0.00s</div>
 
+
+
+    <div id="loading-overlay">
+    <div class="loader-circle"></div>
+    <div class="loading-text">LOADING STRATEGY...</div>
+    </div>
+
     <div id="left-menu">
       <button class="tab-btn active-tab" onclick="switchTab('AUTO')">AUTO</button>
       <button class="tab-btn" onclick="switchTab('TRA SHIFT')">TRA SHIFT</button>
@@ -156,18 +163,17 @@
     </svg>
 
     <img id="settings" src="icons/gears.svg" onclick="document.getElementById('sidebar').classList.replace('closed', 'open')" />
-
     <div id="tools" class="button-bar">
-      <button id="undo-btn" class="non-active" onclick="undoLastAction()" style="background-image: url('icons/undo-svgrepo-com.svg');"></button>
-      <button id="drag-tool" class="non-active" onclick="setMode(CanvasMode.DRAG)" style="background-image: url('icons/select.svg')"></button>
-      <button id="delete-tool" class="non-active" onclick="setMode(CanvasMode.DELETE)" style="background-image: url(icons/delete.svg)"></button>
-      <button id="pen" class="non-active" onclick="setMode(CanvasMode.PEN)" style="background-image: url(icons/pen.svg)"></button>
-      <button id="arrow-tool" class="non-active" onclick="setMode(CanvasMode.ARROW)" style="background-image: url(icons/arrow.svg)"></button>
-      <button onclick="setCurrentAsDefault()" style="background: #880d0d;">Set Def</button>
-      <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()" style="font-weight: bold; font-size: 10px; color: #3172e0;">RESET BOTS</button>
-      <button id="record-btn" class="non-active" onclick="toggleRecording()" style="font-weight: bold; color: hsl(0, 100%, 63%);">REC</button>
-      <button id="play-btn" class="non-active" onclick="toggleReplay()" style="font-weight: bold; color: #44ff44;">PLAY</button>
-    </div> 
+      <button id="undo-btn" class="non-active" onclick="undoLastAction()" title="Undo" style="background-image: url('icons/undo-svgrepo-com.svg');"></button>
+      
+      <button onclick="setCurrentAsDefault()" style="background-color: #880d0d; color: white;">Set Def</button>
+      
+      <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()">RST BOTS</button>
+      
+      <button id="record-btn" class="non-active" onclick="toggleRecording()">REC</button>
+      
+      <button id="play-btn" class="non-active" onclick="toggleReplay()">PLAY</button>
+    </div>
 
 
     <div id="sidebar" class="closed">
@@ -228,15 +234,11 @@
 
 
 
-
-
-
-
-        
 <div class="json-sidebar-container">
-    <button onclick="exportProgress()" style="background-color: #2e7d32; color: white; font-weight: bold;">EXPORT PROGRESS</button>
+
+    <button onclick="exportMacro()" style="background-color: #2e7d32; color: white; font-weight: bold;">EXPORT PROGRESS</button>
     
-    <input type="file" id="import-file" style="display: none;" onchange="importProgress(event)">
+    <input type="file" id="import-file" style="display: none;" onchange="importAndPlayMacro(event)">
     <button onclick="document.getElementById('import-file').click()" style="background-color: #1565c0; color: white; font-weight: bold;">IMPORT PROGRESS</button>
 
     <hr style="width: 100%; border-color: #444; margin: 10px 0;">

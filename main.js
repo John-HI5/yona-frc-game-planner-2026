@@ -12,7 +12,8 @@ const slotsLayer = document.getElementById("slots-layer");
 const background = document.getElementById("field-background");
 const colorPicker = document.getElementById("robot-color-picker-container");
 const timerDisplay = document.getElementById("timer-display");
-
+var isDeleteMode = false;
+var lastBackgroundClickTime = 0;
 
 var isDraggingSlot = false;
 var draggedSlotIndex = null;
@@ -175,9 +176,7 @@ function handleCSVUpload(event) {
     reader.readAsText(file);
 }
 
-
 function loadMatchByNumber() {
-    // בדיקה אם ה-CSV נטען (הפעם אנחנו בודקים את tabStates כי שם שמרנו את הנתונים מה-CSV)
     if (Object.keys(tabStates).length === 0) {
         alert("אם לא תשלח (CSV), איך תקח??");
         return;
@@ -186,47 +185,30 @@ function loadMatchByNumber() {
     const matchInput = prompt("איזה מספר משחק יאח?");
     if (!matchInput) return;
 
-    // בניית המפתח לחיפוש (למשל qm1)
     const tabId = "qm" + matchInput;
     const matchData = tabStates[tabId];
 
     if (matchData && matchData.teams) {
-        // המערך teams מכיל: [red1, red2, red3, blue1, blue2, blue3]
-        const teams = matchData.teams;
-
-        // עדכון ברית אדומה (אינדקסים 0, 1, 2 במערך teams)
-        for (let i = 0; i < 3; i++) {
-            const teamNum = teams[i];
-            if (redRobots[i]) {
-                // עדכון המספר על הרובוט במפה
-                redRobots[i].numberElement.innerHTML = teamNum;
-                // עדכון שדה הקלט (Input) בציד (r1, r2, r3)
-                const inputField = document.getElementById(`r${i + 1}`);
-                if (inputField) inputField.value = teamNum;
-            }
-        }
-
-        // עדכון ברית כחולה (אינדקסים 3, 4, 5 במערך teams)
-        for (let i = 0; i < 3; i++) {
-            const teamNum = teams[i + 3];
-            if (blueRobots[i]) {
-                // עדכון המספר על הרובוט במפה
-                blueRobots[i].numberElement.innerHTML = teamNum;
-                // עדכון שדה הקלט (Input) בציד (b1, b2, b3)
-                const inputField = document.getElementById(`b${i + 1}`);
-                if (inputField) inputField.value = teamNum;
-            }
-        }
-
-        // מעבר לטאב המתאים כדי לסנכרן את התצוגה
+        // המעבר לטאב עכשיו יוצר את השכבה אוטומטית בצורה בטוחה
         switchTab(tabId);
 
-        alert(`משחק ${matchInput} נטען ללוח בכישלון אדיר! תאשים את צוות בקרה`);
+        // עדכון מספרי הרובוטים
+        const teams = matchData.teams;
+        [...redRobots, ...blueRobots].forEach((bot, i) => {
+            if (bot && teams[i]) {
+                bot.numberElement.textContent = teams[i];
+                const prefix = i < 3 ? 'r' : 'b';
+                const inputIdx = i < 3 ? i + 1 : i - 2;
+                const inputField = document.getElementById(`${prefix}${inputIdx}`);
+                if (inputField) inputField.value = teams[i];
+            }
+        });
+
+        alert(`משחק ${matchInput} נטען בהצלחה! עכשיו תנסה לצייר.`);
     } else {
         alert(`משחק מספר ${matchInput} לא נמצא ב-CSV כפרה עליך`);
     }
 }
-
 
 
 
@@ -579,25 +561,271 @@ function captureAllTabPositions() {
     });
 }
 
+
+
+
+
+
+
+
+function importAndPlayMacro(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            const events = data.events || data; 
+            const meta = data.meta || null;
+
+            if (!events || events.length === 0) return;
+
+            if (meta && meta.name) document.title = meta.name;
+            if (meta && meta.settings) applyRobotSettings(meta.settings);
+
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.style.display = 'flex';
+
+            const rect = fieldCanvas.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const fakeInit = { bubbles: true, clientX: centerX, clientY: centerY };
+            
+            fieldCanvas.dispatchEvent(new PointerEvent('pointerdown', fakeInit));
+            fieldCanvas.dispatchEvent(new PointerEvent('pointerup', fakeInit));
+
+            let cursor = document.getElementById('macro-cursor');
+            if (!cursor) {
+                cursor = document.createElement('div');
+                cursor.id = 'macro-cursor';
+                cursor.style = "position:fixed; display:none; pointer-events:none; z-index:1000000;";
+                document.body.appendChild(cursor);
+            }
+
+            events.forEach((ev, index) => {
+                setTimeout(() => {
+                    // בדיקה אם תפריט ההגדרות פתוח כרגע
+                    const sidebar = document.getElementById("sidebar");
+                    const isSidebarOpen = sidebar && sidebar.classList.contains("open");
+
+                    cursor.style.left = ev.x + 'px';
+                    cursor.style.top = ev.y + 'px';
+
+                    const allElements = document.elementsFromPoint(ev.x, ev.y);
+                    let el = allElements.find(item => {
+                        const isInsideSidebar = item.closest('#sidebar');
+                        return item.id !== 'loading-overlay' && 
+                               item.id !== 'macro-cursor' &&
+                               !isInsideSidebar && 
+                               window.getComputedStyle(item).pointerEvents !== 'none';
+                    });
+
+                    if (el) {
+                        const isToolBtn = el.closest('button') || el.closest('.tab-btn');
+                        const targetEl = isToolBtn || el;
+                        const isControlBtn = targetEl.classList.contains('macro-ctrl-btn');
+
+                        // --- התיקון החדש: חסימה בזמן שהסיידבר פתוח ---
+                        if (isSidebarOpen && !isControlBtn) {
+                            // אם הסיידבר פתוח, נאפשר אך ורק לחיצה על ה-fieldCanvas (כדי לסגור אותו)
+                            // כל מטרה אחרת (רובוט, קו, כפתור כלי עבודה) נחסמת.
+                            if (targetEl !== fieldCanvas && targetEl.id !== "field-background") {
+                                return; 
+                            }
+                        }
+
+                        if (!isControlBtn) {
+                            const isPressed = (ev.type === 'mousedown' || ev.isDragging);
+                            const eventInit = {
+                                bubbles: true, cancelable: true, composed: true,
+                                view: window, clientX: ev.x, clientY: ev.y,
+                                buttons: isPressed ? 1 : 0, pointerId: 1,
+                                pointerType: "mouse", isPrimary: true
+                            };
+
+                            const pType = ev.type === 'mousedown' ? 'pointerdown' : 
+                                         ev.type === 'mouseup' ? 'pointerup' : 'pointermove';
+                            
+                            targetEl.dispatchEvent(new PointerEvent(pType, eventInit));
+                            targetEl.dispatchEvent(new MouseEvent(ev.type, eventInit));
+
+                            if (ev.type === 'mousedown') {
+                                targetEl.dispatchEvent(new MouseEvent('click', eventInit));
+                                if (targetEl.onclick) targetEl.onclick(new MouseEvent('click', eventInit));
+                                if (typeof targetEl.click === 'function') targetEl.click();
+                            }
+                        }
+                    }
+
+                    if (index === events.length - 1) {
+                        setTimeout(() => {
+                            if (overlay) overlay.style.display = 'none';
+                            const colorPicker = document.getElementById('robot-color-picker-container');
+                            if (colorPicker) colorPicker.style.display = 'none';
+                        }, 100);
+                    }
+                }, index * 1);
+            });
+        } catch (err) { 
+            console.error("Macro error", err);
+            if (document.getElementById('loading-overlay')) {
+                document.getElementById('loading-overlay').style.display = 'none';
+            }
+        }
+    };
+    reader.readAsText(file);
+}
+
+// פונקציית עזר להחלת הגדרות הרובוטים שנשמרו ב-JSON
+function applyRobotSettings(settings) {
+    if (!settings || !settings.robots) return;
+
+    settings.robots.forEach(savedBot => {
+        const robotGroup = document.getElementById(savedBot.id);
+        if (robotGroup) {
+            // 1. עדכון המספר והצבע של הטקסט
+            const txt = robotGroup.querySelector("text");
+            if (txt) {
+                txt.textContent = savedBot.number; // שימוש ב-textContent בטוח יותר
+                txt.setAttribute("fill", savedBot.color);
+                
+                // עדכון גודל הפונט - מוודא שזה חל על האלמנט
+                const fSize = settings.fontSize || 16;
+                txt.style.fontSize = fSize + "px";
+                txt.setAttribute("font-size", fSize); 
+            }
+            
+            // 2. עדכון גודל וצבע גוף הרובוט
+            const rect = robotGroup.querySelector("rect") || robotGroup.querySelector("circle");
+            if (rect) {
+                if (settings.robotSize) {
+                    const rSize = settings.robotSize;
+                    rect.setAttribute("width", rSize);
+                    rect.setAttribute("height", rSize);
+                    // אם זה עיגול
+                    if (rect.tagName.toLowerCase() === 'circle') {
+                        rect.setAttribute("r", rSize / 2);
+                    }
+                }
+                if (savedBot.color) {
+                    rect.setAttribute("fill", savedBot.color);
+                }
+            }
+        }
+    });
+    console.log("Robot settings applied: Size " + settings.robotSize + ", Font " + settings.fontSize);
+}
+
+// Ensure these variables are at the top of your main.js
+let macroEvents = []; 
+let isMacroRecording = true; 
+
+/**
+ * Downloads the recorded macro events as a JSON file.
+ */
+window.exportMacro = function() {
+    if (typeof macroEvents === 'undefined' || macroEvents.length === 0) {
+        alert("אין מידע מוקלט לייצוא.");
+        return;
+    }
+
+    const now = new Date();
+    const timestamp = `${now.getDate()}-${now.getMonth() + 1}__${now.getHours()}-${now.getMinutes()}`;
+
+    let fileName = prompt("name your strategy", "STR--" + timestamp);
+    if (!fileName) return;
+
+    const robotSettings = {
+        // שים לב: וודא ש-currentRobotSize ו-currentFontSize קיימים ב-main.js
+        robotSize: (typeof currentRobotSize !== 'undefined') ? currentRobotSize : 30,
+        fontSize: (typeof currentFontSize !== 'undefined') ? currentFontSize : 16,
+        robots: [...redRobots, ...blueRobots].map(bot => {
+            // הגישה לאלמנט האב (ה-Group)
+            const group = bot.robotElement.parentNode;
+            
+            // חיפוש הטקסט בתוך הקבוצה
+            const txt = group.querySelector("text");
+            
+            // חיפוש הגוף (ריבוע או עיגול)
+            const body = group.querySelector("rect") || group.querySelector("circle");
+            
+            return {
+                id: group.id,
+                // תיקון קריטי: שימוש ב-textContent במקום innerHTML
+                number: txt ? txt.textContent.trim() : "", 
+                color: body ? body.getAttribute("fill") : (bot.color || "red")
+            };
+        })
+    };
+
+    const dataToSave = {
+        meta: {
+            name: fileName,
+            settings: robotSettings
+        },
+        events: macroEvents
+    };
+
+    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchorNode = document.createElement('a');
+    
+    downloadAnchorNode.setAttribute("href", url);
+    downloadAnchorNode.setAttribute("download", fileName + ".json");
+    
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    URL.revokeObjectURL(url);
+    
+    console.log("הקלטה והגדרות יוצאו בהצלחה בשם: " + fileName);
+};
+
+
+
+
 function switchTab(newTabId) {
     if (newTabId === currentTabId) return;
+    
     captureCurrentPositions();
     tabStates[currentTabId].recordingTime = activeRobotTime;
-    document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`).style.display = 'none';
-    document.getElementById(`draw-layer-${newTabId.replace(/ /g, '-')}`).style.display = 'block';
+
+    // הסתרת השכבה הישנה
+    const oldLayer = document.getElementById(`draw-layer-${currentTabId.replace(/ /g, '-')}`);
+    if (oldLayer) oldLayer.style.display = 'none';
+
+    // בדיקה/יצירה של השכבה החדשה
+    let newLayerId = `draw-layer-${newTabId.replace(/ /g, '-')}`;
+    let newLayer = document.getElementById(newLayerId);
+    
+    if (!newLayer) {
+        // יצירת שכבה חדשה לטאב שנטען מה-CSV
+        newLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        newLayer.id = newLayerId;
+        fieldCanvas.appendChild(newLayer);
+    }
+    
+    newLayer.style.display = 'block';
+    newLayer.style.pointerEvents = "none"; // מאפשר ללחוץ "דרכו" על הרובוטים
+
     currentTabId = newTabId;
     robotPaths = tabStates[currentTabId].robotPaths;
     activeRobotTime = tabStates[currentTabId].recordingTime;
+
+    // עדכון מיקומי רובוטים
     let allBots = [...redRobots, ...blueRobots];
     let savedPos = tabStates[currentTabId].positions;
     allBots.forEach((bot, index) => {
-        if (savedPos[index]) {
+        if (savedPos && savedPos[index]) {
             bot.robotElement.parentNode.transform.baseVal.getItem(0).setTranslate(savedPos[index].x, savedPos[index].y);
         }
     });
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.toggle('active-tab', btn.innerText === newTabId);
     });
+
     if (isReplaying) stopReplay();
     updateTimer(activeRobotTime);
 }

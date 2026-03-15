@@ -1,7 +1,122 @@
 function getActiveLayer() {
-  const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
-  return document.getElementById(layerId) || stageCanvas;
+    const layerId = `draw-layer-${currentTabId.replace(/ /g, '-')}`;
+    return document.getElementById(layerId) || stageCanvas;
 }
+// ... (משתני גרירה נשארים אותו דבר) ...
+
+fieldCanvas.addEventListener("pointerdown", (event) => {
+    // 1. טיפול בסיידבר - אם פתוח, סגור אותו ובטל את הלחיצה הנוכחית
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && sidebar.classList.contains("open")) {
+        sidebar.classList.replace("open", "closed");
+        return;
+    }
+
+    const position = getMousePosition(event);
+    const activeLayer = getActiveLayer();
+    
+    // זיהוי על מה לחצנו
+    const isRobot = event.target.closest('.robot-group');
+    const isSlot = event.target.closest('.slot-group');
+    const clickedPath = event.target.tagName === 'polyline' ? event.target : null;
+
+    // --- לוגיקת לחיצה כפולה על הרקע למעבר למצב מחיקה ---
+    if (!isRobot && !isSlot && !clickedPath) {
+        const currentTime = new Date().getTime();
+        const gap = currentTime - lastBackgroundClickTime;
+
+        if (gap < 300 && gap > 0) { // לחיצה כפולה
+            isDeleteMode = !isDeleteMode;
+            currentCanvasMode = isDeleteMode ? CanvasMode.DELETE : CanvasMode.PEN;
+            
+            // שינוי סמן העכבר לחיווי ויזואלי
+            fieldCanvas.style.cursor = isDeleteMode ? "crosshair" : "default";
+            
+            lastBackgroundClickTime = 0;
+            return; // עוצר כאן כדי שלא יתחיל לצייר בלחיצה השנייה
+        }
+        lastBackgroundClickTime = currentTime;
+    }
+
+    // --- לוגיקת מחיקה ---
+    if (isDeleteMode) {
+        if (clickedPath) {
+            clickedPath.remove(); // מוחק את הקו
+        }
+        return; // במצב מחיקה לא מציירים קווים חדשים
+    }
+
+    // --- לוגיקת ציור רגילה (רק אם לא לחצנו על רובוט/סלוט) ---
+    if (!isRobot && !isSlot) {
+        if (typeof colorPicker !== 'undefined') colorPicker.style.display = "none";
+        
+        if (pendingSlot) {
+            pendingSlot.classList.remove("slot-active");
+            pendingSlot = null;
+        }
+
+        // יצירת הקו החדש
+        currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        currentPenPath.setAttribute("stroke", selectedColor || "white");
+        currentPenPath.setAttribute("fill", "none");
+        currentPenPath.setAttribute("points", `${position.x},${position.y} `);
+        currentPenPath.setAttribute("stroke-width", 4);
+        currentPenPath.setAttribute("stroke-linecap", "round");
+        
+        // חשוב מאוד: מאפשר ללחוץ על הקו בעתיד כדי למחוק אותו
+        currentPenPath.style.pointerEvents = "auto"; 
+
+        if (activeLayer) {
+            activeLayer.appendChild(currentPenPath);
+            // אם יש פונקציית גרירה לקווים:
+            if (typeof makeDragable === 'function') makeDragable(currentPenPath);
+        }
+    }
+});
+
+fieldCanvas.addEventListener("pointermove", (event) => {
+  let position = getMousePosition(event);
+  if (event.pointerType === 'touch') event.preventDefault();
+
+  if (isDraggingSlot && draggedSlotIndex !== null && pendingSlot) {
+    const newX = position.x - offset.x;
+    const newY = position.y - offset.y;
+    pendingSlot.setAttribute("transform", `translate(${newX}, ${newY})`);
+    
+    const bgRect = background.getBoundingClientRect();
+    const scaleX = bgRect.width / 2500;
+    const scaleY = bgRect.height / 1185;
+    slotCoords[draggedSlotIndex].x = newX / scaleX;
+    slotCoords[draggedSlotIndex].y = newY / scaleY;
+  } 
+  else if (selectedElement) {
+    transform.setTranslate(position.x - offset.x, position.y - offset.y);
+  }
+  else if (currentPenPath) {
+    currentPenPath.setAttribute(
+      "points",
+      currentPenPath.getAttribute("points") + position.x + " " + position.y + " "
+    );
+  }
+  else if (currentCanvasMode == CanvasMode.ARROW && currentArrow) {
+      currentArrow.setAttribute("x2", position.x);
+      currentArrow.setAttribute("y2", position.y);
+  }
+}, { passive: false });
+
+fieldCanvas.addEventListener("pointerup", (event) => {
+    currentArrow = null;
+    currentPenPath = null;
+    isDraggingSlot = false;
+    draggedSlotIndex = null;
+});
+
+// ... (שאר הפונקציות: makeDragable, selectElement, וכו' נשארות ללא שינוי)
+
+
+let lastRobotClickTime = 0;
+let lastRobotClicked = null;
+const DOUBLE_CLICK_DELAY = 300; // זמן במיל-שניות ללחיצה כפולה
 
 var currentArrow = null;
 var currentPenPath = null;
@@ -10,57 +125,52 @@ var currentPolygon = null;
 fieldCanvas.addEventListener("pointermove", (event) => {
   let position = getMousePosition(event);
   
-  // 1. מניעת גלילה וזום של הדפדפן בזמן עבודה (קריטי לטאבלט)
-  if (currentCanvasMode !== CanvasMode.DRAG || selectedElement || isDraggingSlot) {
-    if (event.pointerType === 'touch') {
-        event.preventDefault();
-    }
+  // 1. מניעת גלילה וזום (קריטי לטאבלט) - מופעל תמיד כשמבצעים פעולה על הקנבס
+  if (event.pointerType === 'touch') {
+      event.preventDefault();
   }
 
-  if (currentCanvasMode == CanvasMode.ARROW) {
-    if (currentArrow != null) {
-      currentArrow.setAttribute("x2", position.x);
-      currentArrow.setAttribute("y2", position.y);
-    }
-  } else if (currentCanvasMode == CanvasMode.DRAG) {
-    // --- חדש: גרירת עיגולים לבנים (Slots) ---
-    if (isDraggingSlot && draggedSlotIndex !== null && pendingSlot) {
-      const newX = position.x - offset.x;
-      const newY = position.y - offset.y;
-      
-      // עדכון ויזואלי של המיקום
-      pendingSlot.setAttribute("transform", `translate(${newX}, ${newY})`);
-      
-      // עדכון הנתונים במערך המקורי כדי שישמר בשינוי רזולוציה
-      const bgRect = background.getBoundingClientRect();
-      const scaleX = bgRect.width / 2500;
-      const scaleY = bgRect.height / 1185;
-      
-      slotCoords[draggedSlotIndex].x = newX / scaleX;
-      slotCoords[draggedSlotIndex].y = newY / scaleY;
-    } 
-    // --- גרירת רובוטים (הקוד המקורי שלך) ---
-    else if (selectedElement) {
-      transform.setTranslate(position.x - offset.x, position.y - offset.y);
-    }
-  } else if (currentCanvasMode == CanvasMode.PEN) {
-    if (currentPenPath) {
-      currentPenPath.setAttribute(
-        "points",
-        currentPenPath.getAttribute("points") + position.x + " " + position.y + " "
-      );
-    }
+  // --- לוגיקת גרירת סלוטים (עיגולים לבנים) ---
+  if (isDraggingSlot && draggedSlotIndex !== null && pendingSlot) {
+    const newX = position.x - offset.x;
+    const newY = position.y - offset.y;
+    
+    pendingSlot.setAttribute("transform", `translate(${newX}, ${newY})`);
+    
+    const bgRect = background.getBoundingClientRect();
+    const scaleX = bgRect.width / 2500;
+    const scaleY = bgRect.height / 1185;
+    
+    slotCoords[draggedSlotIndex].x = newX / scaleX;
+    slotCoords[draggedSlotIndex].y = newY / scaleY;
   } 
   
-  // --- כלי המחיקה המשופר לטאץ' ---
+  // --- לוגיקת גרירת רובוטים או אלמנטים קיימים ---
+  else if (selectedElement) {
+    transform.setTranslate(position.x - offset.x, position.y - offset.y);
+  }
+
+  // --- לוגיקת ציור (מופעלת אם נוצר קו ב-pointerdown) ---
+  else if (currentPenPath) {
+    currentPenPath.setAttribute(
+      "points",
+      currentPenPath.getAttribute("points") + position.x + " " + position.y + " "
+    );
+  }
+
+  // --- לוגיקת חץ (אם עדיין בשימוש דרך Mode) ---
+  else if (currentCanvasMode == CanvasMode.ARROW && currentArrow) {
+      currentArrow.setAttribute("x2", position.x);
+      currentArrow.setAttribute("y2", position.y);
+  }
+  
+  // --- כלי המחיקה ---
+  // נשאר תלוי Mode כי מחיקה בדרך כלל דורשת בחירה מכוונת של "מחק"
   else if (currentCanvasMode == CanvasMode.DELETE) {
     if (event.buttons !== 0 || event.pointerType === 'touch') {
       const offsets = [
-        { dx: 0, dy: 0 },
-        { dx: 40, dy: 10 },
-        { dx: -40, dy: -40 },
-        { dx: 40, dy: -40 },
-        { dx: -40, dy: 40 }
+        { dx: 0, dy: 0 }, { dx: 40, dy: 10 }, { dx: -40, dy: -40 },
+        { dx: 40, dy: -40 }, { dx: -40, dy: 40 }
       ];
 
       offsets.forEach(off => {
@@ -85,120 +195,46 @@ fieldCanvas.addEventListener("pointermove", (event) => {
 
 
 fieldCanvas.addEventListener("pointerdown", (event) => {
+  const sidebar = document.getElementById("sidebar");
+  if (sidebar && sidebar.classList.contains("open")) {
+    sidebar.classList.replace("open", "closed");
+    return;
+  }
 
-  if (!document.getElementById("sidebar").classList.contains("open")) {
+  // --- תיקון המחק: אם אנחנו במצב מחיקה, אל תייצר קו חדש! ---
+  if (currentCanvasMode === CanvasMode.DELETE) return;
 
-    var position = getMousePosition(event);
+  const position = getMousePosition(event);
+  const activeLayer = getActiveLayer();
 
-    const activeLayer = getActiveLayer();
+  const isRobot = event.target.closest('.robot-group');
+  const isSlot = event.target.closest('.slot-group');
+  const hitBackground = !isRobot && !isSlot;
 
-
-
-    if (currentCanvasMode == CanvasMode.PIECE) {
-
-      var piece = addImage(position.x, position.y, 0, "25assets/coral.svg", 30 * heightRatio, activeLayer);
-
-      makeDragable(piece);
-
-    } else if (currentCanvasMode == CanvasMode.ARROW) {
-
-      if (currentArrow == null) {
-
-        currentArrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
-
-        currentArrow.setAttribute("stroke", selectedColor);
-
-        currentArrow.setAttribute("x1", position.x);
-
-        currentArrow.setAttribute("y1", position.y);
-
-        currentArrow.setAttribute("x2", position.x);
-
-        currentArrow.setAttribute("y2", position.y);
-
-        currentArrow.setAttribute("stroke-width", 4);
-
-        currentArrow.setAttribute("marker-end", "url(#ah" + selectedColor.replace('#', '') + ")");
-
-        activeLayer.appendChild(currentArrow);
-
-        makeDragable(currentArrow);
-
-      }
-
-    } else if (currentCanvasMode == CanvasMode.PEN) {
-
-      if (!event.target.closest('.robot-group')) {
-
-        currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-
-        currentPenPath.setAttribute("stroke", selectedColor);
-
-        currentPenPath.setAttribute("fill", "none");
-
-        currentPenPath.setAttribute("points", position.x + "," + position.y + " ");
-
-        currentPenPath.setAttribute("stroke-width", 4);
-
-        currentPenPath.setAttribute("stroke-linecap", "round");
-
-        activeLayer.appendChild(currentPenPath);
-
-        makeDragable(currentPenPath);
-
-      }
-
+  if (hitBackground) {
+    if (typeof colorPicker !== 'undefined') colorPicker.style.display = "none";
+    if (pendingSlot) {
+      pendingSlot.classList.remove("slot-active");
+      pendingSlot = null;
     }
 
+    // יצירת קו רק אם אנחנו לא במצב מחיקה
+    currentPenPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    currentPenPath.setAttribute("stroke", selectedColor || "black");
+    currentPenPath.setAttribute("fill", "none");
+    currentPenPath.setAttribute("points", position.x + "," + position.y + " ");
+    currentPenPath.setAttribute("stroke-width", 4);
+    currentPenPath.setAttribute("stroke-linecap", "round");
+    currentPenPath.style.pointerEvents = "auto"; 
+    
+    if (activeLayer) {
+      activeLayer.appendChild(currentPenPath);
+      makeDragable(currentPenPath); 
+    }
   } else {
-
-    document.getElementById("sidebar").classList.replace("open", "closed");
-
-    currentPolygon = null;
-
+    currentPenPath = null;
   }
-
-
-
-  const now = Date.now();
-
-  if (now - lastClickTime > 400) clickCount = 0;
-
-  clickCount++;
-
-  lastClickTime = now;
-
-
-
-  if (event.target === fieldCanvas || event.target.id === "field-background") {
-
-      colorPicker.style.display = "none";
-
-      if (pendingSlot) {
-
-          pendingSlot.classList.remove("slot-active");
-
-          pendingSlot = null;
-
-      }
-
-      if (clickCount === 2) setMode(CanvasMode.DRAG);
-
-      if (clickCount === 3) {
-
-          clearField();
-
-          setMode(CanvasMode.PEN);
-
-          clickCount = 0;
-
-      }
-
-  }
-
 });
-
-
 
 fieldCanvas.addEventListener("pointerup", (event) => {
 
@@ -223,73 +259,65 @@ function makeDragable(element) {
 function selectElement(evt) {
     evt.stopPropagation();
     let target = evt.currentTarget;
+    const now = Date.now();
 
-    // 1. Logic for Color Picking (Pen Mode)
-    if (currentCanvasMode == CanvasMode.PEN && target.classList.contains("robot-group")) {
+    // --- 1. בדיקה קריטית: האם יש סלוט (עיגול לבן) שמחכה לרובוט? ---
+    // אנחנו שמים את זה בראש הפונקציה כדי שזה יקרה לפני הגרירה או שינוי הצבע
+    if (pendingSlot && target.classList.contains("robot-group")) {
         let txt = target.querySelector("text");
         if (txt) {
+            let robotNum = txt.innerHTML;
             let robotColor = txt.getAttribute("fill") || txt.style.fill;
-            changeColor(robotColor);
+            let slotText = pendingSlot.querySelector("text");
+            
+            slotText.innerHTML = robotNum;
+            slotText.setAttribute("fill", robotColor);
         }
+        
+        pendingSlot.classList.remove("slot-active");
+        pendingSlot = null;
+        
+        // חשוב: אנחנו עוצרים כאן כדי שהלחיצה רק תשבץ את הרובוט ולא תתחיל לגרור אותו
         return; 
     }
 
-    // 2. Logic for assigning a Robot to a Slot (Clicking a robot while a slot is active)
-    if (pendingSlot && target.classList.contains("robot-group")) {
-        let robotNum = target.querySelector("text").innerHTML;
-        let robotColor = target.querySelector("text").getAttribute("fill") || target.querySelector("text").style.fill;
-        let slotText = pendingSlot.querySelector("text");
-        slotText.innerHTML = robotNum;
-        slotText.setAttribute("fill", robotColor);
-        pendingSlot.classList.remove("slot-active");
-        pendingSlot = null;
-        return;
-    }
-
-    // 3. Delete Logic
-    if (currentCanvasMode == CanvasMode.DELETE) {
-        if (!target.classList.contains("robot-group") && !target.classList.contains("slot-group")) target.remove();
-        return;
-    }
-
-    // 4. Drag Logic
-    if (currentCanvasMode == CanvasMode.DRAG) {
-        // --- NEW: Handle White Circle (Slot) Dragging ---
-        if (target.classList.contains("slot-group")) {
-            isDraggingSlot = true;
-            pendingSlot = target;
-            target.classList.add("slot-active");
+    // --- 2. לוגיקת רובוט (צבע וגרירה) ---
+    if (target.classList.contains("robot-group")) {
+        
+        // בדיקת דאבל קליק לצבע רובוט
+        if (lastRobotClicked === target && (now - lastRobotClickTime) < DOUBLE_CLICK_DELAY) {
+            robotToColor = target;
+            colorPicker.style.left = evt.clientX + "px";
+            colorPicker.style.top = evt.clientY + "px";
+            colorPicker.style.display = "block";
             
-            // Get the index from the attribute we set in initSlots
-            draggedSlotIndex = parseInt(target.getAttribute("data-index"));
-            
-            let mousePos = getMousePosition(evt);
-            let transforms = target.transform.baseVal;
-            
-            // Ensure a translate transform exists
-            if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
-                let translate = fieldCanvas.createSVGTransform();
-                translate.setTranslate(0, 0);
-                target.transform.baseVal.insertItemBefore(translate, 0);
+            selectedElement = null; 
+            lastRobotClickTime = 0; 
+            return; 
+        } else {
+            // לחיצה יחידה - עדכון צבע עט
+            let txt = target.querySelector("text");
+            let rect = target.querySelector("rect");
+            if (txt || rect) {
+                let robotColor = (txt ? txt.getAttribute("fill") : null) || 
+                                 (rect ? rect.getAttribute("fill") : "red");
+                selectedColor = robotColor;
+                if (typeof changeColor === 'function') changeColor(robotColor);
             }
-            
-            let matrix = transforms.getItem(0).matrix;
-            offset = {
-                x: mousePos.x - matrix.e,
-                y: mousePos.y - matrix.f
-            };
-            return; // Stop here so it doesn't run the robot logic below
         }
+        
+        lastRobotClickTime = now;
+        lastRobotClicked = target;
 
-        // --- Original Robot Dragging Logic ---
-        if (isRecording && selectedElement !== target && target.classList.contains("robot-group")) {
+        // לוגיקת גרירת רובוט
+        if (isRecording && selectedElement !== target) {
             const existingPath = robotPaths.get(target);
             activeRobotTime = existingPath ? existingPath.length * 0.033 : 0;
             updateTimer(activeRobotTime);
         }
         
         selectedElement = target;
-        clickStartTime = Date.now();
+        clickStartTime = now;
         offset = getMousePosition(evt);
         let transforms = selectedElement.transform.baseVal;
         
@@ -302,20 +330,79 @@ function selectElement(evt) {
         transform = transforms.getItem(0);
         offset.x -= transform.matrix.e;
         offset.y -= transform.matrix.f;
+        return; 
     }
-}
-function releaseElement(evt) {
-    if (selectedElement && selectedElement.classList.contains("robot-group") && currentCanvasMode == CanvasMode.DRAG) {
-        if (Date.now() - clickStartTime < CLICK_THRESHOLD) {
-            robotToColor = selectedElement;
-            colorPicker.style.left = evt.clientX + "px";
-            colorPicker.style.top = evt.clientY + "px";
-            colorPicker.style.display = "block";
-        }
-    }
-    selectedElement = null;
 
+    // --- 3. לוגיקת גרירת סלוטים (עיגולים לבנים) ---
+    if (target.classList.contains("slot-group")) {
+        isDraggingSlot = true;
+        pendingSlot = target;
+        target.classList.add("slot-active");
+        draggedSlotIndex = parseInt(target.getAttribute("data-index"));
+        
+        let mousePos = getMousePosition(evt);
+        let transforms = target.transform.baseVal;
+        
+        if (transforms.length === 0 || transforms.getItem(0).type !== SVGTransform.SVG_TRANSFORM_TRANSLATE) {
+            let translate = fieldCanvas.createSVGTransform();
+            translate.setTranslate(0, 0);
+            target.transform.baseVal.insertItemBefore(translate, 0);
+        }
+        
+        let matrix = transforms.getItem(0).matrix;
+        offset = {
+            x: mousePos.x - matrix.e,
+            y: mousePos.y - matrix.f
+        };
+        return;
+    }
+
+    // --- 4. לוגיקת מחיקה ---
+    if (currentCanvasMode == CanvasMode.DELETE) {
+        if (!target.classList.contains("robot-group") && !target.classList.contains("slot-group")) {
+            target.remove();
+        }
+        return;
+    }
 }
+
+
+
+function releaseElement(evt) {
+    selectedElement = null;
+    isDraggingSlot = false;
+    draggedSlotIndex = null;
+}
+
+let isMouseDownDuringRecord = false;
+
+// הקלטת תנועה (כולל סימון אם העכבר לחוץ כדי לאפשר גרירה בנגן)
+window.addEventListener('mousemove', (e) => {
+    if (isMacroRecording) {
+        macroEvents.push({ 
+            type: 'mousemove', 
+            x: e.clientX, 
+            y: e.clientY,
+            isDragging: isMouseDownDuringRecord 
+        });
+    }
+});
+
+// הקלטת לחיצה
+window.addEventListener('mousedown', (e) => {
+    if (isMacroRecording) {
+        isMouseDownDuringRecord = true;
+        macroEvents.push({ type: 'mousedown', x: e.clientX, y: e.clientY });
+    }
+});
+
+// הקלטת עזיבה
+window.addEventListener('mouseup', (e) => {
+    if (isMacroRecording) {
+        isMouseDownDuringRecord = false;
+        macroEvents.push({ type: 'mouseup', x: e.clientX, y: e.clientY });
+    }
+});
 
 // --- Button Actions ---
 

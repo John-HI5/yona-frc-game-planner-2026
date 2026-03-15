@@ -8,6 +8,44 @@ html, body {
     height: 100vh;
 }
 
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+    color: white;
+    pointer-events: none; 
+    user-select: none;
+}
+
+.loader-circle {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
 button, th, select, h1, input {
     font-family: monospace;
 }
@@ -16,22 +54,29 @@ button, th, select, h1, input {
     display: none;
 }
 
-/* Updated to fill screen while preserving field aspect ratio */
 #field-background {
     user-select: none;
     width: 100vw;
     height: 100vh;
-    object-fit: contain; /* Keeps the field from stretching */
+    object-fit: contain;
     display: block;
+    pointer-events: none;
 }
 
-/* Canvas now matches the calculated size of the background image */
 #field-canvas {
     user-select: none;
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%); /* Centers the canvas over the 'contained' image */
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
+    pointer-events: all;
+}
+
+/* שכבות ציור */
+[id^="draw-layer-"] {
+    pointer-events: none;
 }
 
 #setup-block {
@@ -47,66 +92,103 @@ button, th, select, h1, input {
     z-index: 10;
 }
 
+/* --- סרגל הכלים המעודכן --- */
 #tools {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    top: 10px;
-    z-index: 5;
+    top: 15px;
+    z-index: 100; /* מוגבה כדי שלא יחסם */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 15px;
+    background: rgba(30, 30, 30, 0.5); /* רקע שקוף למחצה לסרגל */
+    border-radius: 12px;
+    backdrop-filter: blur(5px); /* אפקט זכוכית */
 }
 
-#team-table {
+/* --- הגדרת כפתורים אחידה ואנימטיבית --- */
+.button-bar button {
+    background-repeat: no-repeat;
+    background-size: 22px;
+    background-position: center;
+    width: 65px;
+    height: 42px; /* גובה מעט גבוה יותר למראה מודרני */
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* אנימציה קפיצית */
     position: relative;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 15px;
+    overflow: hidden;
 }
 
+/* אפקטים כלליים לכל הכפתורים */
+.button-bar button:hover {
+    transform: translateY(-3px); /* קפיצה קלה למעלה */
+    filter: brightness(1.1);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.button-bar button:active {
+    transform: scale(0.9); /* התכווצות בלחיצה */
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.4);
+}
+
+/* אנימציה ספציפית לכפתור ה-Undo */
+#undo-btn:active {
+    transform: rotate(-30deg) scale(0.85);
+}
+
+/* סגנונות מצבים (Active / Non-Active) */
+.non-active {
+    background-color: #ffffff;
+    color: #000;
+}
+
+/* כפתור פעיל (כמו עט או כלי שנבחר) */
+.active {
+    background-color: #3498db !important;
+    color: white !important;
+    border-color: #fff;
+    box-shadow: 0 0 15px rgba(52, 152, 219, 0.7);
+}
+
+/* אנימציית דופק לכפתור הקלטה (REC) */
+.record-active {
+    background-color: #ff4444 !important;
+    color: white !important;
+    animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0px rgba(255, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(255, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0px rgba(255, 68, 68, 0); }
+}
+
+/* --- Sidebar --- */
 #settings {
     position: absolute;
     top: 2%;
     right: 3%;
-    width: 30px;
-    height: 30px;
+    width: 35px;
+    height: 35px;
     cursor: pointer;
-    filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(128deg) brightness(106%) contrast(101%);
+    filter: invert(100%);
     z-index: 6;
+    transition: transform 0.5s ease;
 }
 
-.button-bar button {
-    background-repeat: no-repeat;
-    background-size: cover;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    cursor: pointer;
-}
-
-.non-active {
-    background-color: white;
-    filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(128deg) brightness(106%) contrast(101%);
-    transition: 0.5s;
-    border-color: black;
-}
-
-.active {
-    transition: 0.5s;
-    background-color: white;
-    border-color: white;
-    font-weight: 900;
-    filter: invert(0%) sepia(30%) saturate(10%) hue-rotate(206deg) brightness(92%) contrast(102%);
-}
-
-.other-active {
-    transition: 0.5s;
-    background-color: white;
-    border-color: white;
-}
-
-.other-non-active {
-    transition: 0.5s;
-    background-color: black;
-    border-color: white;
+#settings:hover {
+    transform: rotate(90deg); /* גלגל השיניים מסתובב בריחוף */
 }
 
 #sidebar {
@@ -114,85 +196,62 @@ button, th, select, h1, input {
     top: 0px;
     right: 0px;
     height: 100vh;
-    background-color: rgba(40, 40, 40, 0.9);
-    transition: 0.5s;
+    background-color: rgba(20, 20, 20, 0.95);
+    transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
     overflow-x: hidden;
-    z-index: 20;
+    z-index: 200;
     color: white;
-}
-
-#sidebar div {
-    padding: 3%;
-}
-
-.teams span {
-    font-size: large;
-}
-
-#sidebar .color-selector span {
-    height: 30px;
-    width: 30px;
-    background-size: cover;
-    display: inline-block;
-    margin-right: 5px;
-    transition: 0.25s;
-    cursor: pointer;
-}
-
-.selected-color {
-    border-radius: 5px;
-}
-
-.non-selected-color {
-    border-radius: 15px;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.5);
 }
 
 .closed {
     width: 0%;
-    border-style: none;
     opacity: 0;
     pointer-events: none;
+    transform: translateX(100%);
 }
 
 .open {
-    width: 350px; /* Specific width for usability */
-    border-left: solid 2px #FFF;
+    width: 350px;
     opacity: 1;
+    transform: translateX(0);
 }
 
-.stages button {
+/* כפתורי שלבים (Stages) ואפשרויות */
+.stages button, .options button {
+    background-color: #333;
     color: white;
-    width: 32%;
-    margin: auto;
-    background-color: black;
-    border: white 3px solid;
-    transition: 0.5s;
+    border: 1px solid #555;
+    padding: 8px;
+    margin: 5px;
+    border-radius: 4px;
+    transition: 0.3s;
     cursor: pointer;
+}
+
+.stages button:hover, .options button:hover {
+    background-color: #555;
+    border-color: #fff;
 }
 
 .selected-stage {
-    border-width: 5px !important;
-    font-weight: 900;
-}
-
-.options button {
-    background-color: black;
-    color: white;
-    width: 48%;
-    margin: auto;
-    padding: 3px;
-    display: inline-block;
-    border: solid white 2px;
-    font-weight: 600;
-    cursor: pointer;
+    background-color: #3498db !important;
+    border: 2px solid white !important;
+    font-weight: bold;
 }
 
 #version {
     position: fixed; 
     bottom: 5px; 
     right: 5px; 
-    color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.2);
     font-family: monospace;
     z-index: 1;
+    pointer-events: none;
+}
+
+/* אפקט לסמן מחיקה (כשביקשת מחיקת קווים) */
+#field-canvas[style*="crosshair"] {
+    cursor: crosshair;
 }
