@@ -233,31 +233,31 @@
 
 
         
-        <div class="json-sidebar-container">
-            <button onclick="exportProgress()" style="background-color: #2e7d32; color: white; font-weight: bold;">EXPORT PROGRESS</button>
-            
-            <input type="file" id="import-file" style="display: none;" onchange="importProgress(event)">
-            <button onclick="document.getElementById('import-file').click()" style="background-color: #1565c0; color: white; font-weight: bold;">IMPORT PROGRESS</button>
+<div class="json-sidebar-container">
+    <button onclick="exportProgress()" style="background-color: #2e7d32; color: white; font-weight: bold;">EXPORT PROGRESS</button>
+    
+    <input type="file" id="import-file" style="display: none;" onchange="importProgress(event)">
+    <button onclick="document.getElementById('import-file').click()" style="background-color: #1565c0; color: white; font-weight: bold;">IMPORT PROGRESS</button>
 
-            <hr style="width: 100%; border-color: #444; margin: 10px 0;">
+    <hr style="width: 100%; border-color: #444; margin: 10px 0;">
 
-            <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
-            <button id="fullscreen-btn" class="non-active" onclick="toggleFullScreen()" style="font-weight: bold; color: #a1a0a0;">FULLSCREEN</button>
-            <button onclick="document.getElementById('json-upload').click()">UPLOAD SCHEDULE (JSON)</button>
-            <button onclick="loadMatchByNumber()">LOAD MATCH #</button>
-        </div>
+    <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+    
+    <input type="file" id="CSV-upload" accept=".csv" style="display: none;" onchange="handleCSVUpload(event)">
+
+    <button id="fullscreen-btn" class="non-active" onclick="toggleFullScreen()" style="font-weight: bold; color: #a1a0a0;">FULLSCREEN</button>
+    
+    <button onclick="document.getElementById('CSV-upload').click()">UPLOAD SCHEDULE (CSV)</button>
+    
+    <button onclick="loadMatchByNumber()">LOAD MATCH #</button>
+</div>
 
 
 
 
 
                 
-        <div class="json-sidebar-container">
-            <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
-            <button id="fullscreen-btn" class="non-active" onclick="toggleFullScreen()" style="font-weight: bold; color: #a1a0a0;">FULLSCREEN</button>
-            <button onclick="document.getElementById('json-upload').click()">UPLOAD SCHEDULE (JSON)</button>
-            <button onclick="loadMatchByNumber()">LOAD MATCH #</button>
-        </div>
+
 
         <hr style="width: 90%; margin: 10px auto;">
 

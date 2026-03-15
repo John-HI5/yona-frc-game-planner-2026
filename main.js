@@ -112,45 +112,137 @@ function exportProgress() {
 
 
 
-function importProgress(event) {
+function handleCSVUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const importedData = JSON.parse(e.target.result);
-            const allBots = [...document.querySelectorAll('.robot-group')];
-
-            tabNames.forEach(name => {
-                if (importedData[name]) {
-                    tabStates[name].recordingTime = importedData[name].recordingTime;
-                    tabStates[name].positions = importedData[name].positions;
-                    
-                    // Rebuild the Map
-                    tabStates[name].robotPaths = new Map();
-                    importedData[name].robotPaths.forEach(item => {
-                        if (allBots[item.robotIndex]) {
-                            tabStates[name].robotPaths.set(allBots[item.robotIndex], item.path);
-                        }
-                    });
-                }
-            });
-
-            // Refresh the current view
-            const currentTab = currentTabId; 
-            currentTabId = ""; // Force a refresh
-            switchTab(currentTab);
+            const text = e.target.result;
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line !== "");
             
-            alert("הכל נטען בהצלחה! יאללה לניצחון");
+            // חילוץ כותרות כדי למצוא אינדקסים של עמודות
+            const headers = lines[0].split(',');
+            const getIdx = (name) => headers.indexOf(name);
+
+            const idx = {
+                matchKey: getIdx('match_key'),
+                red1: getIdx('red1'), red2: getIdx('red2'), red3: getIdx('red3'),
+                blue1: getIdx('blue1'), blue2: getIdx('blue2'), blue3: getIdx('blue3')
+            };
+
+            // ניקוי הטאבים הקיימים (אופציונלי - תלוי אם אתה רוצה להוסיף או להחליף)
+            // tabNames = []; 
+            // tabStates = {};
+
+            for (let i = 1; i < lines.length; i++) {
+                const data = lines[i].split(',');
+                if (data.length < headers.length) continue;
+
+                const matchKey = data[idx.matchKey];
+                // חילוץ שם קצר לטאב (למשל qm1 במקום 2026casnv_qm1)
+                const tabId = matchKey.includes('_') ? matchKey.split('_')[1] : matchKey;
+
+                // יצירת הסטייט עבור הטאב החדש מה-CSV
+                if (!tabStates[tabId]) {
+                    tabNames.push(tabId);
+                    tabStates[tabId] = {
+                        recordingTime: 0,
+                        positions: {},
+                        robotPaths: new Map(),
+                        // שמירת מספרי הקבוצות בסטייט כדי שנוכל להציג אותם
+                        teams: [
+                            data[idx.red1], data[idx.red2], data[idx.red3],
+                            data[idx.blue1], data[idx.blue2], data[idx.blue3]
+                        ]
+                    };
+                }
+            }
+
+            // עדכון ה-UI (יצירת כפתורי הטאבים מחדש)
+            renderTabs(); 
+            
+            // מעבר לטאב הראשון שנטען
+            if (tabNames.length > 0) switchTab(tabNames[0]);
+
+            alert(`נטענו ${lines.length - 1} משחקים בהצלחה!`);
         } catch (err) {
-            console.error(err);
-            alert("שגיאה בטעינת הקובץ");
+            console.error("Error parsing CSV:", err);
+            alert("שגיאה בטעינת ה-CSV. וודא שהקובץ בפורמט הנכון.");
         }
     };
     reader.readAsText(file);
 }
 
+
+function loadMatchByNumber() {
+    // בדיקה אם ה-CSV נטען (הפעם אנחנו בודקים את tabStates כי שם שמרנו את הנתונים מה-CSV)
+    if (Object.keys(tabStates).length === 0) {
+        alert("אם לא תשלח (CSV), איך תקח??");
+        return;
+    }
+
+    const matchInput = prompt("איזה מספר משחק יאח?");
+    if (!matchInput) return;
+
+    // בניית המפתח לחיפוש (למשל qm1)
+    const tabId = "qm" + matchInput;
+    const matchData = tabStates[tabId];
+
+    if (matchData && matchData.teams) {
+        // המערך teams מכיל: [red1, red2, red3, blue1, blue2, blue3]
+        const teams = matchData.teams;
+
+        // עדכון ברית אדומה (אינדקסים 0, 1, 2 במערך teams)
+        for (let i = 0; i < 3; i++) {
+            const teamNum = teams[i];
+            if (redRobots[i]) {
+                // עדכון המספר על הרובוט במפה
+                redRobots[i].numberElement.innerHTML = teamNum;
+                // עדכון שדה הקלט (Input) בציד (r1, r2, r3)
+                const inputField = document.getElementById(`r${i + 1}`);
+                if (inputField) inputField.value = teamNum;
+            }
+        }
+
+        // עדכון ברית כחולה (אינדקסים 3, 4, 5 במערך teams)
+        for (let i = 0; i < 3; i++) {
+            const teamNum = teams[i + 3];
+            if (blueRobots[i]) {
+                // עדכון המספר על הרובוט במפה
+                blueRobots[i].numberElement.innerHTML = teamNum;
+                // עדכון שדה הקלט (Input) בציד (b1, b2, b3)
+                const inputField = document.getElementById(`b${i + 1}`);
+                if (inputField) inputField.value = teamNum;
+            }
+        }
+
+        // מעבר לטאב המתאים כדי לסנכרן את התצוגה
+        switchTab(tabId);
+
+        alert(`משחק ${matchInput} נטען ללוח בכישלון אדיר! תאשים את צוות בקרה`);
+    } else {
+        alert(`משחק מספר ${matchInput} לא נמצא ב-CSV כפרה עליך`);
+    }
+}
+
+
+
+
+// פונקציית עזר לריענון הטאבים ב-UI (תתאים את זה לשם הפונקציה אצלך)
+function renderTabs() {
+    const container = document.getElementById('tabs-container'); // שנה ל-ID האמיתי שלך
+    if (!container) return;
+    
+    container.innerHTML = "";
+    tabNames.forEach(name => {
+        const btn = document.createElement('button');
+        btn.innerText = name;
+        btn.onclick = () => switchTab(name);
+        container.appendChild(btn);
+    });
+}
 
 
 
@@ -202,7 +294,7 @@ function undoLastAction() {
 
 
 
-
+/*
 // 2. פונקציה לשליפת משחק ספציפי מהזיכרון (מופעלת מהכפתור החדש)
 function loadMatchByNumber() {
     if (!cachedSchedule) {
@@ -245,7 +337,7 @@ function loadMatchByNumber() {
         alert(`משחק מספר ${matchInput} לא נמצא בקובץ כפרה עליך`);
     }
 }
-
+*/
 // --- המשך הקוד המקורי ---
 
 function toggleFullScreen() {
