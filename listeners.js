@@ -31,6 +31,16 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
             
             // שינוי סמן העכבר לחיווי ויזואלי
             fieldCanvas.style.cursor = isDeleteMode ? "crosshair" : "default";
+
+            // עדכון אינדיקטור המחיקה (הכפתור הלא לחיץ)
+            const delIndicator = document.getElementById('delete-indicator');
+            if (delIndicator) {
+                if (isDeleteMode) {
+                    delIndicator.classList.replace('delete-off', 'delete-on');
+                } else {
+                    delIndicator.classList.replace('delete-on', 'delete-off');
+                }
+            }
             
             lastBackgroundClickTime = 0;
             return; // עוצר כאן כדי שלא יתחיל לצייר בלחיצה השנייה
@@ -46,11 +56,19 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
         return; // במצב מחיקה לא מציירים קווים חדשים
     }
 
+    // --- גרירת סלוטים (החזרת הפונקציונליות) ---
+    if (isSlot) {
+        isDraggingSlot = true;
+        const match = isSlot.id.match(/\d+/);
+        draggedSlotIndex = match ? parseInt(match[0]) : null;
+        return;
+    }
+
     // --- לוגיקת ציור רגילה (רק אם לא לחצנו על רובוט/סלוט) ---
     if (!isRobot && !isSlot) {
         if (typeof colorPicker !== 'undefined') colorPicker.style.display = "none";
         
-        if (pendingSlot) {
+        if (typeof pendingSlot !== 'undefined' && pendingSlot) {
             pendingSlot.classList.remove("slot-active");
             pendingSlot = null;
         }
@@ -73,7 +91,6 @@ fieldCanvas.addEventListener("pointerdown", (event) => {
         }
     }
 });
-
 fieldCanvas.addEventListener("pointermove", (event) => {
   let position = getMousePosition(event);
   if (event.pointerType === 'touch') event.preventDefault();

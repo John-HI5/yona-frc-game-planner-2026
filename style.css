@@ -229,7 +229,33 @@ button, th, select, h1, input {
     transition: 0.3s;
     cursor: pointer;
 }
+/* אינדיקטור מחיקה */
+#delete-indicator {
+    width: 65px;
+    height: 42px;
+    border-radius: 8px;
+    background-repeat: no-repeat;
+    background-size: 24px;
+    background-position: center;
+    background-image: url('icons/delete.svg'); /* ה-SVG הישן שלך */
+    transition: all 0.3s ease;
+    pointer-events: none; /* לא לחיץ! */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-sizing: border-box;
+}
 
+/* מצב כבוי - שחור */
+.delete-off {
+    background-color: #000000;
+    filter: brightness(0.5); /* גורם לאייקון להראות "כבוי" */
+}
+
+/* מצב פעיל - ירוק */
+.delete-on {
+    background-color: #44ff44;
+    filter: brightness(1) invert(1); /* הופך את האייקון לשחור על רקע ירוק */
+    box-shadow: 0 0 15px rgba(68, 255, 68, 0.6);
+}
 .stages button:hover, .options button:hover {
     background-color: #555;
     border-color: #fff;

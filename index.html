@@ -164,14 +164,12 @@
 
     <img id="settings" src="icons/gears.svg" onclick="document.getElementById('sidebar').classList.replace('closed', 'open')" />
     <div id="tools" class="button-bar">
+      <div id="delete-indicator" class="delete-off" title="Delete Mode Indicator"></div>
+
       <button id="undo-btn" class="non-active" onclick="undoLastAction()" title="Undo" style="background-image: url('icons/undo-svgrepo-com.svg');"></button>
-      
       <button onclick="setCurrentAsDefault()" style="background-color: #880d0d; color: white;">Set Def</button>
-      
       <button id="reset-robots-btn" class="non-active" onclick="resetRobotPositions()">RST BOTS</button>
-      
       <button id="record-btn" class="non-active" onclick="toggleRecording()">REC</button>
-      
       <button id="play-btn" class="non-active" onclick="toggleReplay()">PLAY</button>
     </div>
 
