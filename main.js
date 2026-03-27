@@ -822,8 +822,11 @@ function switchTab(newTabId) {
         }
     });
 
+    // החלף את הלולאה הקיימת בזו:
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active-tab', btn.innerText === newTabId);
+        // שליחת ה-ID מה-onclick של הכפתור כדי להשוות ל-newTabId
+        const btnId = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+        btn.classList.toggle('active-tab', btnId === newTabId);
     });
 
     if (isReplaying) stopReplay();
