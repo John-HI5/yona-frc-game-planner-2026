@@ -68,6 +68,7 @@ window.onload = function () {
     spawnInitialRobots();
     initSlots();
     captureAllTabPositions();
+    loadSettings()
 
     // Add this line:
     document.addEventListener('fullscreenchange', resizeCanvas);
@@ -75,8 +76,60 @@ window.onload = function () {
 
 // ---save functions ---
 
+function saveSettings() {
+    const settings = {
+        robotSize: document.getElementById('robot-size-slider').value,
+        textSize: document.getElementById('text-size-slider').value,
+        // שמירת נתוני הרובוטים (מספר וצבע)
+        robots: [...redRobots, ...blueRobots].map((bot, index) => {
+            const group = bot.robotElement.parentNode;
+            const txt = group.querySelector("text");
+            return {
+                number: txt ? txt.textContent : "",
+                color: txt ? txt.getAttribute("fill") : (index < 3 ? "#F00" : "#00F")
+            };
+        })
+    };
+    localStorage.setItem('debug_game_planner_settings', JSON.stringify(settings));
+}
 
 
+function loadSettings() {
+    const saved = localStorage.getItem('debug_game_planner_settings');
+    if (saved) {
+        const settings = JSON.parse(saved);
+        
+        if (settings.robotSize) {
+            document.getElementById('robot-size-slider').value = settings.robotSize;
+            updateAllRobotSizes(settings.robotSize);
+        }
+        
+        if (settings.textSize) {
+            document.getElementById('text-size-slider').value = settings.textSize;
+            updateAllTextSizes(settings.textSize);
+        }
+
+        // טעינת מספרי וצבעי הרובוטים
+        if (settings.robots) {
+            const allBots = [...redRobots, ...blueRobots];
+            settings.robots.forEach((savedBot, i) => {
+                if (allBots[i]) {
+                    // עדכון התצוגה על המגרש
+                    allBots[i].numberElement.textContent = savedBot.number;
+                    allBots[i].numberElement.setAttribute("fill", savedBot.color);
+                    
+                    // עדכון שדות הקלט ב-Sidebar (אם קיימים)
+                    const prefix = i < 3 ? 'r' : 'b';
+                    const inputIdx = i < 3 ? i + 1 : i - 2; // התאמה ל-b1, b2, b3 וכו'
+                    const inputField = document.getElementById(`${prefix}${inputIdx}`);
+                    if (inputField) inputField.value = savedBot.number;
+                }
+            });
+        }
+    }
+}
+// קריאה לטעינה כשהדף עולה
+document.addEventListener('DOMContentLoaded', loadSettings);
 
 
 function exportProgress() {
@@ -1084,12 +1137,13 @@ var iroPicker = new iro.ColorPicker("#iro-picker", {
 iroPicker.on('color:change', function(color) {
     if (robotToColor) {
         let hex = color.hexString;
-        selectedColor = hex; // Updates your pen/arrow color
+        selectedColor = hex;
         
         let txt = robotToColor.querySelector("text");
         if (txt) { 
             txt.setAttribute("fill", hex); 
             txt.style.fill = hex; 
+            saveSettings(); // שמירת הצבע החדש של מספר הרובוט
         }
     }
 });
@@ -1130,7 +1184,17 @@ function updateAllTextSizes(s) {
 }
 
 class Robot {
-    constructor(c, img, txt) { this.color = c; this.robotElement = img; this.numberElement = txt; }
-    updateDriveTrain(e) { this.robotElement.setAttribute("href", `assets/${this.color}${e.target.value}.svg`); }
-    updateTeamNumber(e) { this.numberElement.innerHTML = e.target.value; }
+    constructor(c, img, txt) { 
+        this.color = c; 
+        this.robotElement = img; 
+        this.numberElement = txt; 
+    }
+    updateDriveTrain(e) { 
+        this.robotElement.setAttribute("href", `assets/${this.color}${e.target.value}.svg`); 
+        saveSettings(); // שמירה לאחר שינוי
+    }
+    updateTeamNumber(e) { 
+        this.numberElement.innerHTML = e.target.value; 
+        saveSettings(); // שמירה לאחר שינוי מספר
+    }
 }
