@@ -1155,7 +1155,61 @@ function clearField() {
     activeRobotTime = 0;
     updateTimer(0);
 }
+function toggleSlotControls() {
+    const container = document.getElementById('slot-controls-container');
+    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+}
+function resetRobotsToDefault() {
+    if (!confirm("are you sure?")) return;
 
+    // 1. איפוס רובוטים אדומים
+    redRobots.forEach((bot, i) => {
+        const group = bot.robotElement.parentNode;
+        const txt = group.querySelector("text");
+        const body = group.querySelector("rect") || group.querySelector("circle");
+        
+        const defaultNum = (i + 4).toString(); // 4, 5, 6
+        const defaultColor = "#F00";
+
+        if (txt) {
+            txt.textContent = defaultNum;
+            txt.setAttribute("fill", defaultColor);
+        }
+        if (body) body.setAttribute("fill", defaultColor);
+        
+        // עדכון האינפוט ב-sidebar
+        const input = document.getElementById(`r${i + 1}`);
+        if (input) input.value = defaultNum;
+    });
+
+    // 2. איפוס רובוטים כחולים
+    blueRobots.forEach((bot, i) => {
+        const group = bot.robotElement.parentNode;
+        const txt = group.querySelector("text");
+        const body = group.querySelector("rect") || group.querySelector("circle");
+        
+        const defaultNum = (i + 1).toString(); // 1, 2, 3
+        const defaultColor = "#00F";
+
+        if (txt) {
+            txt.textContent = defaultNum;
+            txt.setAttribute("fill", defaultColor);
+        }
+        if (body) body.setAttribute("fill", defaultColor);
+
+        const input = document.getElementById(`b${i + 1}`);
+        if (input) input.value = defaultNum;
+    });
+
+    // 3. איפוס טקסט בעיגולים הלבנים (Slots) לריק
+    document.querySelectorAll(".slot-group text").forEach(t => {
+        t.textContent = "";
+    });
+
+    // 4. שמירה ועדכון
+    saveSettings();
+   
+}
 function clearAllTabs() {
     stageCanvas.innerHTML = "";
     redRobots = [];
